@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import * as THREE from 'three';
 
 function TShirt({ color = '#3B82F6', design = 'NanoDrip' }: { color?: string; design?: string }) {
-  const meshRef = useRef<THREE.Mesh>(null);
+  const meshRef = useRef<THREE.Group>(null);
   
   useFrame((state) => {
     if (meshRef.current) {
@@ -49,7 +49,7 @@ function TShirt({ color = '#3B82F6', design = 'NanoDrip' }: { color?: string; de
 }
 
 function Hoodie({ color = '#1F2937', design = 'NanoDrip' }: { color?: string; design?: string }) {
-  const meshRef = useRef<THREE.Mesh>(null);
+  const meshRef = useRef<THREE.Group>(null);
   
   useFrame((state) => {
     if (meshRef.current) {
@@ -134,8 +134,6 @@ export default function Product3D({
         <ambientLight intensity={0.5} />
         <directionalLight
           position={[10, 10, 5]}
-          angle={0.15}
-          penumbra={1}
           intensity={1}
           castShadow
           shadow-mapSize={[2048, 2048]}

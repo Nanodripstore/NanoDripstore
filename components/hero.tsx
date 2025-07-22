@@ -116,7 +116,7 @@ export default function Hero() {
               animate={{ y: [0, 5, 0] }}
               transition={{ duration: 2, repeat: Infinity }}
             >
-              <ArrowRight className="w-4 h-4 rotate-90" />
+              <ArrowRight className="w-4 h-4 rotate-90 mb-1" />
             </motion.div>
           </motion.div>
         </div>

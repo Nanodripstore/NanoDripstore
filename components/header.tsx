@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingBag, Menu, X, Sun, Moon } from 'lucide-react';
 import { useTheme } from 'next-themes';
+import { usePathname } from 'next/navigation';
 import { useCartStore } from '@/lib/cart-store';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -15,6 +16,8 @@ export default function Header() {
   const { getTotalItems, openCart } = useCartStore();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const pathname = usePathname();
+  const isHomepage = pathname === '/';
 
   useEffect(() => {
     setMounted(true);
@@ -36,6 +39,21 @@ export default function Header() {
     { name: 'FAQ', href: '/faq' }
   ];
 
+  // Determine text color based on homepage and scroll state
+  const getTextColor = () => {
+    if (isHomepage) {
+      return scrolled ? 'text-foreground' : 'text-white';
+    }
+    return 'text-foreground';
+  };
+
+  const getTextColorWithOpacity = () => {
+    if (isHomepage) {
+      return scrolled ? 'text-foreground/80 hover:text-foreground' : 'text-white/80 hover:text-white';
+    }
+    return 'text-foreground/80 hover:text-foreground';
+  };
+
   return (
     <motion.header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
@@ -51,7 +69,7 @@ export default function Header() {
         <div className="flex items-center justify-between">
           {/* Logo */}
           <motion.div
-            className="text-2xl font-bold"
+            className={`text-2xl font-bold ${getTextColor()}`}
             whileHover={{ scale: 1.05 }}
             transition={{ type: "spring", stiffness: 400 }}
           >
@@ -64,7 +82,7 @@ export default function Header() {
               <motion.a
                 key={item.name}
                 href={item.href}
-                className="text-foreground/80 hover:text-foreground transition-colors relative"
+                className={`${getTextColorWithOpacity()} transition-colors relative`}
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 // transition={{ delay: index * 0.1 }}
@@ -87,7 +105,7 @@ export default function Header() {
               variant="ghost"
               size="icon"
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="relative h-8 w-8 sm:h-10 sm:w-10"
+              className={`relative h-8 w-8 sm:h-10 sm:w-10 ${isHomepage && !scrolled ? 'text-white hover:text-white hover:bg-white/10' : ''}`}
             >
               <motion.div
                 key={theme}
@@ -106,7 +124,12 @@ export default function Header() {
               whileTap={{ scale: 0.95 }}
               className="relative"
             >
-              <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-10 sm:w-10" onClick={openCart}>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className={`h-8 w-8 sm:h-10 sm:w-10 ${isHomepage && !scrolled ? 'text-white hover:text-white hover:bg-white/10' : ''}`} 
+                onClick={openCart}
+              >
                 <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5" />
                 {getTotalItems() > 0 && (
                   <Badge 
@@ -123,7 +146,11 @@ export default function Header() {
             {/* Mobile Menu */}
             <Sheet>
               <SheetTrigger asChild className="md:hidden">
-                <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className={`h-8 w-8 ${isHomepage && !scrolled ? 'text-white hover:text-white hover:bg-white/10' : ''}`}
+                >
                   <Menu className="h-4 w-4" />
                 </Button>
               </SheetTrigger>

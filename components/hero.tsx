@@ -14,7 +14,7 @@ export default function Hero() {
       <div 
         className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-80"
         style={{
-          backgroundImage: "url('https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=1920&h=1080&fit=crop')"
+          backgroundImage: "url('https://images.pexels.com/photos/1040945/pexels-photo-1040945.jpeg')"
         }}
       />
       
@@ -99,7 +99,7 @@ export default function Hero() {
             onClick={() => router.push('/shop')}
           >
             <img 
-              src="https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=300&fit=crop" 
+              src="https://images.pexels.com/photos/8532616/pexels-photo-8532616.jpeg" 
               alt="New Arrival" 
               className="w-full h-32 object-cover rounded mb-3"
             />

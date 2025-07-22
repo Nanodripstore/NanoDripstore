@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Star, Heart, ShoppingCart, Truck, Shield, RotateCcw, ArrowLeft, Plus, Minus } from 'lucide-react';
+import { Star, Heart, ShoppingCart, Truck, Shield, RotateCcw, ArrowLeft, Plus, Minus, RotateCw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCartStore } from '@/lib/cart-store';
 import Header from '@/components/header';
@@ -25,6 +25,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [show3D, setShow3D] = useState(false);
 
   useEffect(() => {
     if (product) {
@@ -89,13 +90,32 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.6 }}
-              className="aspect-square bg-secondary/20 rounded-lg overflow-hidden"
+              className="relative aspect-square bg-secondary/20 rounded-lg overflow-hidden"
             >
-              <Product3D
-                type={product.type}
-                color={selectedColor}
-                className="h-full w-full"
-              />
+              {show3D ? (
+                <Product3D
+                  type={product.type}
+                  color={selectedColor}
+                  className="h-full w-full"
+                />
+              ) : (
+                <img
+                  src={product.images[selectedImage]}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                />
+              )}
+              
+              {/* 360° Button */}
+              <Button
+                variant="secondary"
+                size="sm"
+                className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm hover:bg-white shadow-lg"
+                onClick={() => setShow3D(!show3D)}
+              >
+                <RotateCw className="w-4 h-4 mr-2" />
+                {show3D ? 'Photo' : '360°'}
+              </Button>
             </motion.div>
 
             {/* Thumbnail Images */}
@@ -106,7 +126,10 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: index * 0.1 }}
-                  onClick={() => setSelectedImage(index)}
+                  onClick={() => {
+                    setSelectedImage(index);
+                    setShow3D(false); // Switch back to photo view when clicking thumbnail
+                  }}
                   className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${
                     selectedImage === index ? 'border-primary' : 'border-border hover:border-primary/50'
                   }`}

@@ -11,8 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from "sonner";
 
-
-export default function ProductShowcase() {
+export default function ShopProducts() {
   const router = useRouter();
   const { addItem } = useCartStore();
   const [selectedColor, setSelectedColor] = useState<string>('');
@@ -50,17 +49,17 @@ export default function ProductShowcase() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <Badge variant="outline" className="mb-4">Featured Collection</Badge>
+          <Badge variant="outline" className="mb-4">Full Collection</Badge>
           <h2 className="text-4xl md:text-5xl font-bold mb-4">
-            Premium <span className="text-primary">Streetwear</span>
+            Complete <span className="text-primary">Collection</span>
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Discover our carefully curated collection of premium hoodies and t-shirts, 
-            each designed with attention to detail and comfort.
+            Explore our complete range of premium hoodies and t-shirts. 
+            Find your perfect style from our carefully curated collection.
           </p>
         </motion.div>
 
-        {/* Product Grid */}
+        {/* Product Grid - Show ALL products */}
         <motion.div 
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-8"
           initial={{ opacity: 0 }}
@@ -68,7 +67,7 @@ export default function ProductShowcase() {
           transition={{ duration: 0.6 }}
           viewport={{ once: true, margin: "-50px" }}
         >
-          {products.slice(0, 6).map((product, index) => (
+          {products.map((product, index) => (
             <motion.div
               key={product.id}
               initial={{ opacity: 0, y: 30 }}
@@ -77,7 +76,7 @@ export default function ProductShowcase() {
                 y: 0,
                 transition: {
                   duration: 0.5,
-                  delay: index * 0.08,
+                  delay: index * 0.04, // Reduced delay for larger grid
                   ease: "easeOut"
                 }
               }}
@@ -118,81 +117,92 @@ export default function ProductShowcase() {
 
                     {/* Clickable Product Image */}
                     <div
-                      className="h-full w-full cursor-pointer"
+                      className="relative w-full h-full cursor-pointer"
                       onClick={() => handleQuickView(product)}
                     >
                       <img
                         src={product.images[0]}
                         alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
-                        loading={index < 4 ? "eager" : "lazy"}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
+                      
+                      {/* Hover Overlay */}
+                      <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                        <div className="bg-white/90 backdrop-blur-sm rounded-full p-2 sm:p-3 transform scale-90 group-hover:scale-100 transition-transform duration-200">
+                          <span className="text-xs sm:text-sm font-medium text-black">Quick View</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Product Details */}
-                  <div className="p-3 sm:p-4 lg:p-6 flex-1 flex flex-col">
-                    {/* Rating */}
-                    <div className="flex items-center gap-1 mb-2">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`w-3 h-3 sm:w-4 sm:h-4 ${
-                            i < Math.floor(product.rating)
-                              ? 'text-yellow-400 fill-current'
-                              : 'text-gray-300'
-                          }`}
-                        />
-                      ))}
-                      <span className="text-xs sm:text-sm text-muted-foreground ml-1">
-                        ({product.reviews})
-                      </span>
-                    </div>
-
-                    {/* Product Name */}
+                  {/* Product Info */}
+                  <div className="p-3 sm:p-4 flex-1 flex flex-col">
+                    {/* Product Name - Clickable */}
                     <h3 
-                      className="font-semibold text-sm sm:text-base lg:text-lg mb-2 group-hover:text-primary transition-all line-clamp-2 flex-1 cursor-pointer hover:scale-[1.01] duration-200"
+                      className="font-semibold text-sm sm:text-base mb-1 sm:mb-2 line-clamp-2 hover:text-primary transition-colors cursor-pointer"
                       onClick={() => handleQuickView(product)}
                     >
                       {product.name}
                     </h3>
+                    
+                    {/* Rating */}
+                    <div className="flex items-center gap-1 mb-2 sm:mb-3">
+                      <div className="flex">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`h-3 w-3 sm:h-4 sm:w-4 ${
+                              i < Math.floor(product.rating)
+                                ? 'fill-yellow-400 text-yellow-400'
+                                : 'text-gray-300'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-xs sm:text-sm text-muted-foreground">
+                        {product.rating} ({product.reviews})
+                      </span>
+                    </div>
+
+                    {/* Colors */}
+                    <div className="flex items-center gap-1 sm:gap-2 mb-2 sm:mb-3">
+                      <span className="text-xs text-muted-foreground">Colors:</span>
+                      <div className="flex gap-1">
+                        {product.colors.slice(0, 4).map((color, colorIndex) => (
+                          <div
+                            key={colorIndex}
+                            className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 border-white shadow-sm hover:scale-110 transition-transform cursor-pointer"
+                            style={{ backgroundColor: color.value }}
+                            title={color.name}
+                          />
+                        ))}
+                        {product.colors.length > 4 && (
+                          <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-gray-200 border-2 border-white shadow-sm flex items-center justify-center">
+                            <span className="text-xs text-gray-600">+{product.colors.length - 4}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
                     {/* Price */}
                     <div className="flex items-center gap-2 mb-3 sm:mb-4">
-                      <span className="text-lg sm:text-xl lg:text-2xl font-bold">${product.price}</span>
+                      <span className="text-lg sm:text-xl font-bold text-primary">
+                        ${product.price}
+                      </span>
                       {product.originalPrice && (
-                        <span className="text-sm sm:text-base lg:text-lg text-muted-foreground line-through">
+                        <span className="text-sm text-muted-foreground line-through">
                           ${product.originalPrice}
                         </span>
                       )}
                     </div>
 
-                    {/* Color Options */}
-                    <div className="flex items-center gap-2 mb-3 sm:mb-4">
-                      <Palette className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground" />
-                      <div className="flex gap-1 sm:gap-2">
-                        {product.colors.map((color) => (
-                          <button
-                            key={color.value}
-                            className={`w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 rounded-full border-2 transition-all duration-200 hover:scale-110 ${
-                              selectedColor === color.value
-                                ? 'border-primary scale-110'
-                                : 'border-border hover:border-primary/50'
-                            }`}
-                            style={{ backgroundColor: color.value }}
-                            onClick={() => setSelectedColor(color.value)}
-                            title={color.name}
-                          />
-                        ))}
-                      </div>
-                    </div>
-
                     {/* Add to Cart Button */}
                     <Button
-                      className="w-full group/btn text-xs sm:text-sm lg:text-base h-8 sm:h-9 lg:h-10 bg-primary/90 hover:bg-primary hover:scale-[1.02] transition-all duration-200 mt-auto"
                       onClick={() => handleAddToCart(product)}
+                      className="w-full mt-auto text-xs sm:text-sm py-2 sm:py-3 hover:scale-105 transition-all duration-200"
+                      size="sm"
                     >
-                      <ShoppingCart className="w-3 h-3 sm:w-4 sm:h-4 mr-2 group-hover/btn:rotate-12 transition-transform duration-300" />
+                      <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                       Add to Cart
                     </Button>
                   </div>
@@ -200,34 +210,6 @@ export default function ProductShowcase() {
               </Card>
             </motion.div>
           ))}
-        </motion.div>
-
-        {/* Load More Button */}
-        <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.3 }}
-          className="text-center mt-12 sm:mt-16"
-        >
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <Button 
-              variant="outline" 
-              size="lg" 
-              className="px-6 sm:px-8 py-2 sm:py-3 text-sm sm:text-base hover:bg-primary hover:text-primary-foreground transition-all duration-300"
-              onClick={() => router.push('/shop')}
-            >
-              <motion.span
-                className="flex items-center gap-2"
-                whileHover={{ x: 5 }}
-                transition={{ duration: 0.2 }}
-              >
-                View All Products
-              </motion.span>
-            </Button>
-          </motion.div>
         </motion.div>
       </div>
     </section>

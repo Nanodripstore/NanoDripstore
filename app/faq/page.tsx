@@ -25,7 +25,6 @@ const faqs = [
   },
   {
     id: 4,
-    question: "How do I care for my ZINZIRA products?",
     question: "How do I care for my NanoDrip products?",
     answer: "For best results, wash in cold water with like colors, tumble dry on low heat, and avoid bleach. Detailed care instructions are included with each item and on the product pages."
   },

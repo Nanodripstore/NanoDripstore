@@ -91,7 +91,7 @@ export default function Footer() {
           className="flex flex-col md:flex-row justify-between items-center pt-8 mt-8 border-t border-border/50"
         >
           <div className="text-muted-foreground mb-4 md:mb-0">
-            © {currentYear} ZINZIRA. All rights reserved.
+            © {currentYear} NanoDrip. All rights reserved.
           </div>
           
           {/* Social Media */}

@@ -13,7 +13,6 @@ const reviews = [
     name: "Alex Chen",
     avatar: "https://images.pexels.com/photos/1040945/pexels-photo-1040945.jpeg",
     rating: 5,
-    review: "Absolutely love my ZINZIRA hoodie! The quality is incredible and the fit is perfect. Fast shipping and excellent customer service.",
     review: "Absolutely love my NanoDrip hoodie! The quality is incredible and the fit is perfect. Fast shipping and excellent customer service.",
     product: "Classic Hoodie",
     date: "2 weeks ago"
@@ -50,7 +49,6 @@ const reviews = [
     name: "Riley Johnson",
     avatar: "https://images.pexels.com/photos/1040945/pexels-photo-1040945.jpeg",
     rating: 5,
-    review: "ZINZIRA has become my go-to brand for streetwear. Every piece I've bought has exceeded my expectations.",
     review: "NanoDrip has become my go-to brand for streetwear. Every piece I've bought has exceeded my expectations.",
     product: "Limited Edition Hoodie",
     date: "2 months ago"
@@ -116,7 +114,6 @@ export default function Reviews() {
             transition={{ duration: 0.6, delay: 0.4 }}
             className="text-xl text-muted-foreground max-w-2xl mx-auto"
           >
-            See what our customers are saying about their ZINZIRA experience.
             See what our customers are saying about their NanoDrip experience.
           </motion.p>
         </div>

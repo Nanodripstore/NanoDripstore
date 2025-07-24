@@ -16,7 +16,7 @@ import Link from 'next/link';
 
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
-  const { getTotalItems, openCart, setUser } = useCartStore();
+  const { getTotalItems, openCart } = useCartStore();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
@@ -31,18 +31,6 @@ export default function Header() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-
-  // Set user in cart store when session changes
-  useEffect(() => {
-    const updateUser = async () => {
-      if (session?.user?.email) {
-        await setUser(session.user.email);
-      } else {
-        await setUser(null);
-      }
-    };
-    updateUser();
-  }, [session?.user?.email, setUser]);
 
   if (!mounted) return null;
 

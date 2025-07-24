@@ -5,7 +5,7 @@ generator client {
 
 // 2. DATASOURCE: Where your database lives
 datasource db {
-  provider = "postgresql"                    // We're using PostgreSQL
+  provider = "sqlite"                        // We're using SQLite for simplicity
   url      = env("DATABASE_URL")            // Connection string from .env file
 }
 
@@ -47,6 +47,9 @@ model CartItem {
   // FOREIGN KEY: Links back to User table
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
+  // INDEXES: Speed up common queries
+  @@index([userId])
+  @@index([createdAt])
   // UNIQUE CONSTRAINT: One user can't have duplicate items with same color/size
   @@map("cart_items")
 }
@@ -82,6 +85,9 @@ model Order {
   address     Address?    @relation(fields: [addressId], references: [id])
   addressId   String?
   
+  // INDEXES: Speed up user orders queries
+  @@index([userId])
+  @@index([createdAt])
   @@map("orders")
 }
 

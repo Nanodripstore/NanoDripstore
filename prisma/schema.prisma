@@ -1,0 +1,130 @@
+// 1. GENERATOR: Tells Prisma what code to generate
+generator client {
+  provider = "prisma-client-js"  // Generate JavaScript client
+}
+
+// 2. DATASOURCE: Where your database lives
+datasource db {
+  provider = "postgresql"                    // We're using PostgreSQL
+  url      = env("DATABASE_URL")            // Connection string from .env file
+}
+
+// 3. MODELS: These become tables in your database
+
+// Users table - stores basic user info
+model User {
+  id            String    @id @default(cuid())  // Primary key, auto-generated
+  email         String    @unique               // Must be unique
+  name          String?                         // ? means optional
+  image         String?
+  phone         String?
+  createdAt     DateTime  @default(now())      // Auto-set when created
+  updatedAt     DateTime  @updatedAt           // Auto-update when modified
+  
+  // RELATIONSHIPS: Connect this user to other tables
+  cart          CartItem[]       // One user has many cart items
+  wishlist      WishlistItem[]   // One user has many wishlist items
+  orders        Order[]          // One user has many orders
+  addresses     Address[]        // One user has many addresses
+  
+  @@map("users")  // Actual table name in database
+}
+
+// Cart items table - what's in each user's cart
+model CartItem {
+  id        String   @id @default(cuid())
+  userId    String                           // Which user owns this item
+  productId Int                              // Which product this is
+  name      String                           // Product name (copy for speed)
+  price     Float                            // Price when added to cart
+  color     String                           // Selected color
+  size      String                           // Selected size
+  image     String                           // Product image
+  type      String                           // hoodie/tshirt
+  quantity  Int      @default(1)             // How many of this item
+  createdAt DateTime @default(now())
+  
+  // FOREIGN KEY: Links back to User table
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // UNIQUE CONSTRAINT: One user can't have duplicate items with same color/size
+  @@map("cart_items")
+}
+
+// Wishlist table - products user wants to buy later
+model WishlistItem {
+  id        String   @id @default(cuid())
+  userId    String
+  productId Int
+  name      String
+  price     Float
+  image     String
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, productId])  // One user can't wishlist same product twice
+  @@map("wishlist_items")
+}
+
+// Orders table - completed purchases
+model Order {
+  id          String      @id @default(cuid())
+  userId      String
+  orderNumber String      @unique              // Human-readable order number
+  status      OrderStatus @default(PENDING)   // Using enum below
+  total       Float
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items       OrderItem[] // What was bought in this order
+  address     Address?    @relation(fields: [addressId], references: [id])
+  addressId   String?
+  
+  @@map("orders")
+}
+
+// Order items - individual products in an order
+model OrderItem {
+  id        String @id @default(cuid())
+  orderId   String
+  productId Int
+  name      String
+  price     Float
+  color     String
+  size      String
+  image     String
+  quantity  Int
+  
+  order     Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  @@map("order_items")
+}
+
+// Addresses - where to ship orders
+model Address {
+  id          String  @id @default(cuid())
+  userId      String
+  name        String              // "Home", "Work", etc.
+  street      String
+  city        String
+  state       String
+  zipCode     String
+  country     String
+  isDefault   Boolean @default(false)  // Primary shipping address
+  
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders      Order[] // Orders shipped to this address
+  
+  @@map("addresses")
+}
+
+// ENUM: Predefined order statuses
+enum OrderStatus {
+  PENDING      // Just placed
+  PROCESSING   // Being prepared
+  SHIPPED      // On the way
+  DELIVERED    // Completed
+  CANCELLED    // Cancelled
+}

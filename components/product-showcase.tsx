@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Star, Heart, ShoppingCart, Palette } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useSession, signIn } from 'next-auth/react';
 import { useCartStore } from '@/lib/cart-store';
 import { products } from '@/lib/products';
 import { Button } from '@/components/ui/button';
@@ -14,10 +15,22 @@ import { toast } from "sonner";
 
 export default function ProductShowcase() {
   const router = useRouter();
+  const { data: session } = useSession();
   const { addItem } = useCartStore();
   const [selectedColor, setSelectedColor] = useState<string>('');
 
   const handleAddToCart = (product: typeof products[0]) => {
+    if (!session?.user) {
+      toast.error('Please sign in to add items to cart', {
+        description: 'You need to be logged in to use the shopping cart',
+        action: {
+          label: 'Sign In',
+          onClick: () => signIn('google'),
+        },
+      });
+      return;
+    }
+
     const defaultColor = product.colors[0]?.name || 'Default';
     const defaultSize = product.sizes[2] || 'M'; // Default to M size
     

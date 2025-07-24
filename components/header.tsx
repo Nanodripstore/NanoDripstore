@@ -5,11 +5,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingBag, Menu, X, Sun, Moon } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { usePathname } from 'next/navigation';
+import { useSession, signIn, signOut } from 'next-auth/react';
 import { useCartStore } from '@/lib/cart-store';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import CartSidebar from './cart-sidebar';
+import Link from 'next/link';
 
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
@@ -18,6 +20,7 @@ export default function Header() {
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
   const isHomepage = pathname === '/';
+  const { data: session } = useSession();
 
   useEffect(() => {
     setMounted(true);
@@ -56,11 +59,10 @@ export default function Header() {
 
   return (
     <motion.header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled 
-          ? 'bg-background/80 backdrop-blur-lg' 
-          : 'bg-transparent'
-      }`}
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled
+        ? 'bg-background/80 backdrop-blur-lg'
+        : 'bg-transparent'
+        }`}
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
@@ -72,8 +74,9 @@ export default function Header() {
             className={`text-2xl font-bold ${getTextColor()}`}
             whileHover={{ scale: 1.05 }}
             transition={{ type: "spring", stiffness: 400 }}
-          >
+          ><Link href="/">
             NanoDrip
+          </Link>
           </motion.div>
 
           {/* Desktop Navigation */}
@@ -85,7 +88,6 @@ export default function Header() {
                 className={`${getTextColorWithOpacity()} transition-colors relative`}
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                // transition={{ delay: index * 0.1 }}
                 whileHover={{ y: -2 }}
               >
                 {item.name}
@@ -118,37 +120,77 @@ export default function Header() {
               </motion.div>
             </Button>
 
-            {/* Cart */}
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="relative"
-            >
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className={`h-8 w-8 sm:h-10 sm:w-10 ${isHomepage && !scrolled ? 'text-white hover:text-white hover:bg-white/10' : ''}`} 
-                onClick={openCart}
-              >
-                <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5" />
-                {getTotalItems() > 0 && (
-                  <Badge 
-                    variant="destructive" 
-                    className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 h-4 w-4 sm:h-5 sm:w-5 rounded-full p-0 flex items-center justify-center text-xs"
+            {/* Cart and Auth */}
+            <div className="flex items-center gap-2">
+              {session && session?.user ? (
+                <>
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="relative"
                   >
-                    {getTotalItems()}
-                  </Badge>
-                )}
-              </Button>
-              <CartSidebar />
-            </motion.div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={`h-8 w-8 sm:h-10 sm:w-10 ${isHomepage && !scrolled ? 'text-white hover:text-white hover:bg-white/10' : ''}`}
+                      onClick={openCart}
+                    >
+                      <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5" />
+                      {getTotalItems() > 0 && (
+                        <Badge
+                          variant="destructive"
+                          className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 h-4 w-4 sm:h-5 sm:w-5 rounded-full p-0 flex items-center justify-center text-xs"
+                        >
+                          {getTotalItems()}
+                        </Badge>
+                      )}
+                    </Button>
+                  </motion.div>
+                  <CartSidebar />
+
+                  <Button
+                    variant="ghost"
+                    onClick={() => signOut()}
+                    className={`text-sm ${getTextColor()} ${isHomepage && !scrolled ? 'text-white hover:text-white hover:bg-white/10' : ''}`}
+                  >
+                    Sign Out
+                  </Button>
+                  
+                  <Link href="/dashboard">
+                    <Button
+                      variant="ghost"
+                      className={`text-sm ${getTextColor()} ${isHomepage && !scrolled ? 'text-white hover:text-white hover:bg-white/10' : ''}`}
+                    >
+                      {session?.user?.name}
+                    </Button>
+                  </Link>
+                </>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    onClick={() => signIn('google')}
+                    className={`text-sm ${getTextColor()} ${isHomepage && !scrolled ? 'text-white hover:text-white hover:bg-white/10' : ''}`}
+                  >
+                    Sign In
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => signIn('google')}
+                    className={`text-sm ${isHomepage && !scrolled ? ' text-white hover:text-white hover:bg-white/10' : ''}`}
+                  >
+                    Sign Up
+                  </Button>
+                </div>
+              )}
+            </div>
 
             {/* Mobile Menu */}
             <Sheet>
               <SheetTrigger asChild className="md:hidden">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
+                <Button
+                  variant="ghost"
+                  size="icon"
                   className={`h-8 w-8 ${isHomepage && !scrolled ? 'text-white hover:text-white hover:bg-white/10' : ''}`}
                 >
                   <Menu className="h-4 w-4" />

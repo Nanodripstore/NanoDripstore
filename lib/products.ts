@@ -31,13 +31,13 @@ export const products: Product[] = [
       { name: 'Crimson', value: '#EF4444' },
       { name: 'Forest Green', value: '#10B981' }
     ],
-    sizes: ['XS', 'S', 'M', 'L', 'XL'],
+    sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
     images: [
-      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1580657018950-c7f7d6a6d990?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800&h=800&fit=crop"
+      "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=500&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=500&h=600&fit=crop"
     ],
-    description: "Ultra-soft basic t-shirt in vibrant colors. Essential wardrobe staple with superior comfort and modern fit.",
+    description: "Our signature hoodie combines premium comfort with street-ready style. Made from a soft cotton-polyester blend, this hoodie features our iconic NanoDrip logo and is perfect for any casual occasion.",
     features: [
       "Premium cotton-polyester blend",
       "Adjustable drawstring hood",
@@ -61,13 +61,13 @@ export const products: Product[] = [
       { name: 'Royal Blue', value: '#3B82F6' },
       { name: 'Crimson', value: '#EF4444' }
     ],
-    sizes: ['S', 'M', 'L', 'XL', 'XXL'],
+    sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
     images: [
-      "https://images.unsplash.com/photo-1525507119028-ed4c629a60a3?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1578764629971-788b76e5a910?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=800&h=800&fit=crop"
+      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1583743814966-8936f37f0c04?w=500&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=500&h=600&fit=crop"
     ],
-    description: "Cozy oversized hoodie perfect for layering. Dropped shoulders and relaxed fit for the ultimate comfort experience.",
+    description: "A modern take on the classic tee, featuring bold graphics and premium materials. This versatile piece works perfectly for layering or wearing on its own.",
     features: [
       "100% premium cotton",
       "Pre-shrunk fabric",
@@ -93,9 +93,9 @@ export const products: Product[] = [
     ],
     sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
     images: [
-      "https://images.unsplash.com/photo-1580657018950-c7f7d6a6d990?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1564557287817-3785e38ec1f5?w=800&h=800&fit=crop"
+      "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=500&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=500&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500&h=600&fit=crop"
     ],
     description: "Experience ultimate comfort with our premium oversized hoodie. Designed for the modern streetwear enthusiast who values both style and comfort.",
     features: [
@@ -123,9 +123,9 @@ export const products: Product[] = [
     ],
     sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
     images: [
-      "https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=800&h=800&fit=crop"
+      "https://images.unsplash.com/photo-1583743814966-8936f37f0c04?w=500&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=500&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500&h=600&fit=crop"
     ],
     description: "Clean, minimal design meets premium quality. This essential tee features our subtle logo and is perfect for everyday wear.",
     features: [
@@ -153,9 +153,9 @@ export const products: Product[] = [
     ],
     sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
     images: [
-      "https://images.unsplash.com/photo-1564557287817-3785e38ec1f5?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800&h=800&fit=crop"
+      "https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=500&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=500&h=600&fit=crop"
     ],
     description: "A vintage-inspired hoodie with a perfectly broken-in feel. Features distressed details and washed colors for that authentic streetwear look.",
     features: [
@@ -182,9 +182,9 @@ export const products: Product[] = [
     ],
     sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
     images: [
-      "https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1583743814966-8936f37f4fc9?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&h=800&fit=crop"
+      "https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=500&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1583743814966-8936f37f0c04?w=500&h=600&fit=crop"
     ],
     description: "Bold graphics meet premium comfort in this statement tee. Perfect for expressing your unique style with eye-catching designs.",
     features: [
@@ -212,9 +212,9 @@ export const products: Product[] = [
     ],
     sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
     images: [
-      "https://images.unsplash.com/photo-1580657018950-c7f7d6a6d990?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1564557287817-3785e38ec1f5?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800&h=800&fit=crop"
+      "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=500&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=500&h=600&fit=crop"
     ],
     description: "Next-generation hoodie with advanced tech fleece material. Lightweight yet warm, perfect for active lifestyles and urban adventures.",
     features: [
@@ -242,9 +242,9 @@ export const products: Product[] = [
     ],
     sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
     images: [
-      "https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&h=800&fit=crop"
+      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1583743814966-8936f37f0c04?w=500&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=500&h=600&fit=crop"
     ],
     description: "Throwback vibes with modern quality. Features classic stripe patterns and retro-inspired colors for a timeless look.",
     features: [
@@ -272,9 +272,9 @@ export const products: Product[] = [
     ],
     sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
     images: [
-      "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1564557287817-3785e38ec1f5?w=800&h=800&fit=crop"
+      "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=500&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=500&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500&h=600&fit=crop"
     ],
     description: "Versatile zip-up hoodie that transitions seamlessly from casual to athletic wear. Premium construction meets functional design.",
     features: [
@@ -301,9 +301,9 @@ export const products: Product[] = [
     ],
     sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
     images: [
-      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1583743814966-8936f37f4fc9?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=800&h=800&fit=crop"
+      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1583743814966-8936f37f0c04?w=500&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=500&h=600&fit=crop"
     ],
     description: "The perfect everyday tee. Made from premium cotton with a comfortable fit that works for any occasion.",
     features: [
@@ -330,9 +330,9 @@ export const products: Product[] = [
     ],
     sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
     images: [
-      "https://images.unsplash.com/photo-1580657018950-c7f7d6a6d990?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1564557287817-3785e38ec1f5?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800&h=800&fit=crop"
+      "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=500&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=500&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500&h=600&fit=crop"
     ],
     description: "Classic pullover hoodie with a modern twist. Features premium materials and attention to detail for superior comfort.",
     features: [
@@ -360,9 +360,9 @@ export const products: Product[] = [
     ],
     sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
     images: [
-      "https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&h=800&fit=crop"
+      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1583743814966-8936f37f0c04?w=500&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=500&h=600&fit=crop"
     ],
     description: "Sophisticated henley with long sleeves for versatile styling. Perfect for layering or wearing on its own.",
     features: [
@@ -371,184 +371,6 @@ export const products: Product[] = [
       "Soft cotton blend",
       "Relaxed fit",
       "Versatile styling"
-    ],
-    category: "T-Shirts"
-  },
-  {
-    id: 13,
-    name: "Athletic Performance Hoodie",
-    price: 134.99,
-    rating: 4.8,
-    reviews: 145,
-    type: 'hoodie',
-    colors: [
-      { name: 'Stealth Black', value: '#1A1A1A' },
-      { name: 'Wolf Gray', value: '#6B7280' },
-      { name: 'Ocean Blue', value: '#0EA5E9' },
-      { name: 'Lime Green', value: '#84CC16' }
-    ],
-    sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
-    images: [
-      "https://images.unsplash.com/photo-1580657018950-c7f7d6a6d990?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1564557287817-3785e38ec1f5?w=800&h=800&fit=crop"
-    ],
-    description: "High-performance hoodie designed for athletes and fitness enthusiasts. Combines comfort with advanced moisture-wicking technology.",
-    features: [
-      "Moisture-wicking fabric",
-      "Quick-dry technology",
-      "Anti-odor treatment",
-      "Athletic fit",
-      "Reflective logo"
-    ],
-    isNew: true,
-    category: "Hoodies"
-  },
-  {
-    id: 14,
-    name: "Crew Neck Essential Tee",
-    price: 32.99,
-    rating: 4.5,
-    reviews: 92,
-    type: 'tshirt',
-    colors: [
-      { name: 'Classic White', value: '#FFFFFF' },
-      { name: 'Deep Black', value: '#000000' },
-      { name: 'Stone Gray', value: '#8B8680' },
-      { name: 'Sage Green', value: '#9CAF88' }
-    ],
-    sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
-    images: [
-      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1583743814966-8936f37f4fc9?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=800&h=800&fit=crop"
-    ],
-    description: "Perfect crew neck tee with a modern fit. Essential piece for any wardrobe with premium comfort and style.",
-    features: [
-      "Crew neck design",
-      "Soft cotton jersey",
-      "Modern fit",
-      "Reinforced collar",
-      "Easy care fabric"
-    ],
-    category: "T-Shirts"
-  },
-  {
-    id: 15,
-    name: "Color Block Hoodie",
-    price: 94.99,
-    originalPrice: 114.99,
-    rating: 4.7,
-    reviews: 118,
-    type: 'hoodie',
-    colors: [
-      { name: 'Black/Gray', value: '#374151' },
-      { name: 'Navy/White', value: '#1E3A8A' },
-      { name: 'Green/Black', value: '#059669' },
-      { name: 'Red/Gray', value: '#DC2626' }
-    ],
-    sizes: ['S', 'M', 'L', 'XL', 'XXL'],
-    images: [
-      "https://images.unsplash.com/photo-1564557287817-3785e38ec1f5?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1525507119028-ed4c629a60a3?w=800&h=800&fit=crop"
-    ],
-    description: "Bold color blocking meets contemporary design. Stand out with this modern take on the classic hoodie silhouette.",
-    features: [
-      "Color block design",
-      "Premium fleece blend",
-      "Adjustable drawcord",
-      "Front pouch pocket",
-      "Contemporary fit"
-    ],
-    category: "Hoodies"
-  },
-  {
-    id: 16,
-    name: "Vintage Wash Pocket Tee",
-    price: 38.99,
-    rating: 4.6,
-    reviews: 87,
-    type: 'tshirt',
-    colors: [
-      { name: 'Faded Black', value: '#2D2D2D' },
-      { name: 'Vintage Blue', value: '#4A90A4' },
-      { name: 'Washed Green', value: '#87A96B' },
-      { name: 'Rust Orange', value: '#D4A574' }
-    ],
-    sizes: ['XS', 'S', 'M', 'L', 'XL'],
-    images: [
-      "https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1580657018950-c7f7d6a6d990?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&h=800&fit=crop"
-    ],
-    description: "Vintage-inspired pocket tee with authentic washed finish. Perfect for casual wear with a nostalgic touch.",
-    features: [
-      "Vintage wash treatment",
-      "Front chest pocket",
-      "Relaxed fit",
-      "Soft hand feel",
-      "Authentic vintage look"
-    ],
-    category: "T-Shirts"
-  },
-  {
-    id: 17,
-    name: "Premium Zip Hoodie",
-    price: 119.99,
-    rating: 4.9,
-    reviews: 189,
-    type: 'hoodie',
-    colors: [
-      { name: 'Charcoal Black', value: '#36454F' },
-      { name: 'Steel Blue', value: '#4682B4' },
-      { name: 'Forest Green', value: '#228B22' },
-      { name: 'Burgundy Red', value: '#800020' }
-    ],
-    sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
-    images: [
-      "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1578764629971-788b76e5a910?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=800&h=800&fit=crop"
-    ],
-    description: "Premium quality zip-up hoodie with luxury materials and meticulous craftsmanship. The ultimate in comfort and style.",
-    features: [
-      "Premium zip closure",
-      "Luxury fleece lining",
-      "Reinforced seams",
-      "Embossed logo",
-      "Superior construction"
-    ],
-    isBestseller: true,
-    category: "Hoodies"
-  },
-  {
-    id: 18,
-    name: "Oversized Graphic Tee",
-    price: 44.99,
-    originalPrice: 54.99,
-    rating: 4.4,
-    reviews: 73,
-    type: 'tshirt',
-    colors: [
-      { name: 'Pure White', value: '#FFFFFF' },
-      { name: 'Jet Black', value: '#000000' },
-      { name: 'Light Gray', value: '#D3D3D3' },
-      { name: 'Sand Beige', value: '#F5E6D3' }
-    ],
-    sizes: ['S', 'M', 'L', 'XL', 'XXL'],
-    images: [
-      "https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1580657018950-c7f7d6a6d990?w=800&h=800&fit=crop"
-    ],
-    description: "Trendy oversized tee with bold graphics. Perfect for streetwear enthusiasts who love making a statement.",
-    features: [
-      "Oversized fit",
-      "Bold graphic design",
-      "Soft cotton fabric",
-      "Drop shoulder style",
-      "Contemporary streetwear"
     ],
     category: "T-Shirts"
   }

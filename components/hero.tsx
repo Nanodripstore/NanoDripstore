@@ -2,12 +2,9 @@
 
 import { motion } from 'framer-motion';
 import { ArrowRight, Sparkles } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 
 export default function Hero() {
-  const router = useRouter();
-
   return (
     <section className="relative min-h-screen sm:px-16 flex items-center overflow-hidden" style={{ background: 'linear-gradient(to bottom right, #374151, #4b5563, #6b7280)' }}>
       {/* Background Image */}
@@ -64,7 +61,6 @@ export default function Hero() {
               style={{ backgroundColor: 'white', color: 'black' }}
               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
-              onClick={() => router.push('/shop')}
             >
               Shop Now
               <motion.div
@@ -80,7 +76,6 @@ export default function Hero() {
               size="lg"
               className="text-base sm:text-lg px-6 py-4 sm:px-8 sm:py-6 w-full sm:w-auto"
               style={{ borderColor: 'white', color: 'white', backgroundColor: 'transparent' }}
-              onClick={() => router.push('/category')}
             >
               Categories
               <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />
@@ -95,8 +90,7 @@ export default function Hero() {
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.6 }}
-            className="absolute top-0 right-0 bg-white p-4 rounded-lg shadow-lg max-w-xs cursor-pointer hover:shadow-xl transition-shadow duration-300"
-            onClick={() => router.push('/shop')}
+            className="absolute top-0 right-0 bg-white p-4 rounded-lg shadow-lg max-w-xs"
           >
             <img 
               src="https://images.pexels.com/photos/8532616/pexels-photo-8532616.jpeg" 

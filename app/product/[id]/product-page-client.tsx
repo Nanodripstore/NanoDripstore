@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Star, Heart, ShoppingCart, Truck, Shield, RotateCcw, ArrowLeft, Plus, Minus, RotateCw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useSession, signIn } from 'next-auth/react';
 import { useCartStore } from '@/lib/cart-store';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
@@ -20,6 +21,7 @@ interface ProductPageClientProps {
 
 export default function ProductPageClient({ product }: ProductPageClientProps) {
   const router = useRouter();
+  const { data: session } = useSession();
   const { addItem } = useCartStore();
   const [selectedColor, setSelectedColor] = useState('');
   const [selectedSize, setSelectedSize] = useState('');
@@ -35,6 +37,17 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
   }, [product]);
 
   const handleAddToCart = () => {
+    if (!session?.user) {
+      toast.error('Please sign in to add items to cart', {
+        description: 'You need to be logged in to use the shopping cart',
+        action: {
+          label: 'Sign In',
+          onClick: () => signIn('google'),
+        },
+      });
+      return;
+    }
+
     if (!selectedSize) {
       toast.error('Please select a size');
       return;

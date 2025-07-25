@@ -1,19 +1,69 @@
-# Deployment Status
+# NanoDrip Store - Deployment Status
 
-This file confirms that the Netlify routing fixes have been applied:
+## Current Issue: Database Connection Error ❌
 
-✅ Updated netlify.toml with empty publish directory
-✅ Added _redirects file for proper routing  
-✅ Created health check API endpoint
-✅ Updated Next.js config for Netlify compatibility
+**Error Message:** 
+```
+Database connection failed - error: Error validating datasource `db`: the URL must start with the protocol `file:`
+```
 
-## Test the deployment:
+## Root Cause
+- Prisma schema expects SQLite (`file:` protocol) 
+- Production needs Turso (`libsql:` protocol with auth token)
+- Environment variables not configured correctly in Netlify
 
-1. Check main page: https://your-app.netlify.app
-2. Test API health: https://your-app.netlify.app/api/health  
-3. Try authentication flow
+## ✅ **Latest Fixes Applied**
 
-If you still see 404 errors, check:
-- Environment variables are set in Netlify
-- Build completed successfully
-- All routes are handled by the function
+### 1. Updated Database Configuration (`lib/db.ts`)
+- **Production**: Uses `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN`
+- **Development**: Uses local SQLite file
+- **Error handling**: Clear error messages for missing credentials
+
+### 2. Environment Variable Documentation
+- **`ENV-SETUP.md`**: Correct variable names and setup instructions
+- **`netlify.toml`**: Environment variable documentation
+- **`TROUBLESHOOTING.md`**: Step-by-step diagnosis guide
+
+### 3. Enhanced Health Check (`/api/health`)
+- Tests database connectivity in real-time
+- Shows environment information
+- Provides detailed error messages
+
+## 🚨 **Action Required: Set Netlify Environment Variables**
+
+In Netlify Dashboard → Site Settings → Environment Variables, add:
+
+```bash
+NEXTAUTH_URL=https://www.nanodripstore.netlify.app
+NEXTAUTH_SECRET=[generate with: openssl rand -base64 32]
+GOOGLE_CLIENT_ID=[your-google-client-id]
+GOOGLE_CLIENT_SECRET=[your-google-client-secret]
+TURSO_DATABASE_URL=libsql://[your-database].turso.io
+TURSO_AUTH_TOKEN=[your-turso-auth-token]
+NODE_ENV=production
+```
+
+## 🔍 **Testing Steps**
+
+1. **Set environment variables** in Netlify Dashboard
+2. **Redeploy site** to apply new variables
+3. **Test health endpoint**: `https://www.nanodripstore.netlify.app/api/health`
+4. **Test sign-in** functionality
+
+## 📋 **Deployment Checklist**
+
+- [x] Code deployed to Netlify
+- [x] Build succeeds
+- [x] Health endpoint created
+- [ ] Environment variables configured
+- [ ] Database connection working
+- [ ] Google OAuth configured
+- [ ] Sign-in functionality working
+
+## Next Steps
+1. Configure environment variables in Netlify Dashboard
+2. Wait for automatic redeploy
+3. Test health endpoint for database connectivity
+4. Verify sign-in functionality
+
+**Expected Result**: After setting environment variables, the health endpoint should show "Database: Connected" and sign-in should work properly.

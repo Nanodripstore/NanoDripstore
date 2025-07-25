@@ -1,6 +1,6 @@
 [build]
   command = "npm run build"
-  publish = ".next"
+  publish = ""
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
@@ -10,22 +10,3 @@
   NPM_VERSION = "9"
   NEXT_TELEMETRY_DISABLED = "1"
   SECRETS_SCAN_ENABLED = "false"
-  SECRETS_SCAN_OMIT_PATHS = ".next/**,node_modules/**,**/*.md,lib/prisma.ts"
-
-# Handle all routes through Next.js
-[[redirects]]
-  from = "/*"
-  to = "/.netlify/functions/___netlify-handler"
-  status = 200
-
-# API routes
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/___netlify-handler"
-  status = 200
-
-# Authentication routes
-[[redirects]]
-  from = "/auth/*"
-  to = "/.netlify/functions/___netlify-handler"
-  status = 200

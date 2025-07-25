@@ -22,6 +22,13 @@ Set these in Netlify Dashboard:
 ## Build Settings:
 
 - Build command: `npm run build`
-- Publish directory: `.next`
+- Publish directory: `` (leave empty)
+
+## Troubleshooting:
+
+If you get "Page Not Found":
+1. Check build logs for errors
+2. Verify environment variables are set
+3. Test API health: `https://your-app.netlify.app/api/health`
 
 Your app will be live after deployment!

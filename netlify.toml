@@ -10,14 +10,17 @@
   NPM_VERSION = "9"
   NEXT_TELEMETRY_DISABLED = "1"
   SECRETS_SCAN_ENABLED = "false"
+  # Provide a dummy DATABASE_URL for build time validation
+  DATABASE_URL = "file:./temp.db"
 
 # Environment variables that need to be set in Netlify Dashboard
 # These are just documentation - actual values must be set in Netlify UI
 [context.production.environment]
   NODE_ENV = "production"
-  # NEXTAUTH_URL = "https://www.nanodripstore.netlify.app"
+  # NEXTAUTH_URL = "https://nanodripstore.in"
   # NEXTAUTH_SECRET = "your-secret-here"
   # GOOGLE_CLIENT_ID = "your-google-client-id"
   # GOOGLE_CLIENT_SECRET = "your-google-client-secret"
+  # DATABASE_URL = "libsql://your-database.turso.io?authToken=your-token"
   # TURSO_DATABASE_URL = "libsql://your-database.turso.io"
   # TURSO_AUTH_TOKEN = "your-turso-token"

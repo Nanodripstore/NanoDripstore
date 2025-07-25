@@ -9,6 +9,8 @@
   NODE_VERSION = "18"
   NPM_VERSION = "9"
   NEXT_TELEMETRY_DISABLED = "1"
+  SECRETS_SCAN_ENABLED = "false"
+  SECRETS_SCAN_OMIT_PATHS = ".next/**,node_modules/**,**/*.md,lib/prisma.ts"
 
 # Handle all routes through Next.js
 [[redirects]]

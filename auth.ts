@@ -3,6 +3,7 @@ import Google from "next-auth/providers/google"
  
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [Google],
+  trustHost: true,  // Trust the host for production deployment
   callbacks: {
     async signIn({ user, account, profile }) {
       // Always allow sign in - we'll handle database operations later

@@ -7,11 +7,12 @@ Add these environment variables in your Netlify dashboard:
 ### Required Variables:
 
 ```bash
-DATABASE_URL=https://nanodrip-store-nanodrip-store.aws-ap-south-1.turso.io?authToken=[your-token]
 NEXTAUTH_URL=https://nanodripstore.in
 NEXTAUTH_SECRET=[secure-32-character-secret]
+AUTH_TRUST_HOST=true
 GOOGLE_CLIENT_ID=[your-google-client-id]
 GOOGLE_CLIENT_SECRET=[your-google-client-secret]
+DATABASE_URL=https://nanodrip-store-nanodrip-store.aws-ap-south-1.turso.io?authToken=[your-token]
 TURSO_AUTH_TOKEN=[your-turso-auth-token]
 NODE_ENV=production
 ```

@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+// Force this route to be dynamic since it connects to database
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     // Test database connection

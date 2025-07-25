@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Google OAuth Test</title>
+</head>
+<body>
+    <h1>Direct Google OAuth Test</h1>
+    <p>Click the link below to test Google OAuth directly:</p>
+    
+    <a id="oauth-link" href="#" target="_blank">Test Google OAuth</a>
+    
+    <script>
+        // Your client ID
+        const clientId = "809911311077-evbg9gq7ph1um3esc73ovkq675kojmh4.apps.googleusercontent.com";
+        
+        // Test BOTH redirect URIs:
+        // 1. NextAuth URI:
+        const nextAuthUri = "https://nanodripstore.netlify.app/api/auth/callback/google";
+        // 2. Direct test URI:
+        const directTestUri = "https://nanodripstore.netlify.app/api/oauth-direct-test";
+        
+        const redirectUri = nextAuthUri; // Change this to directTestUri to test the other endpoint
+        
+        // Build the OAuth URL
+        const oauthUrl = `https://accounts.google.com/oauth2/auth?` +
+            `client_id=${clientId}&` +
+            `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+            `response_type=code&` +
+            `scope=${encodeURIComponent('openid email profile')}&` +
+            `state=test`;
+        
+        document.getElementById('oauth-link').href = oauthUrl;
+        document.getElementById('oauth-link').textContent = oauthUrl;
+        
+        console.log('OAuth URL:', oauthUrl);
+    </script>
+</body>
+</html>

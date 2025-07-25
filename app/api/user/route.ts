@@ -30,6 +30,7 @@ export async function GET() {
       })
     }
 
+    
     // Get related data separately for better performance
     const [addresses, cartCount, wishlistCount, recentOrders] = await Promise.all([
       prisma.address.findMany({

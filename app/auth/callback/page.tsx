@@ -1,83 +1,73 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 
-export default function AuthCallback() {
-  const [status, setStatus] = useState('Processing...');
-  const [user, setUser] = useState(null);
+function AuthCallbackContent() {
+  const [status, setStatus] = useState('Checking authentication...');
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const { data: session, status: sessionStatus } = useSession();
 
   useEffect(() => {
-    const code = searchParams.get('code');
-    const error = searchParams.get('error');
-
-    if (error) {
-      setStatus(`Error: ${error}`);
+    if (sessionStatus === 'loading') {
+      setStatus('Verifying your authentication...');
       return;
     }
 
-    if (code) {
-      handleGoogleCallback(code);
-    } else {
-      setStatus('No authorization code received');
+    if (sessionStatus === 'authenticated' && session?.user) {
+      setStatus('Authentication successful! Redirecting to dashboard...');
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 1500);
+      return;
     }
-  }, [searchParams]);
 
-  const handleGoogleCallback = async (code: string) => {
-    try {
-      setStatus('Exchanging code for tokens...');
-      
-      const response = await fetch('/api/auth/google-exchange', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ code }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setStatus('Login successful!');
-        setUser(data.user);
-        
-        // Store user in localStorage or your state management
-        localStorage.setItem('user', JSON.stringify(data.user));
-        localStorage.setItem('tokens', JSON.stringify(data.tokens));
-        
-        // Redirect to dashboard or home
-        setTimeout(() => {
-          router.push('/dashboard');
-        }, 2000);
-      } else {
-        setStatus(`Error: ${data.error}`);
-        console.error('Auth error:', data);
-      }
-    } catch (error) {
-      setStatus('Network error occurred');
-      console.error('Network error:', error);
+    if (sessionStatus === 'unauthenticated') {
+      setStatus('Authentication failed. Redirecting to home...');
+      setTimeout(() => {
+        router.push('/');
+      }, 2000);
+      return;
     }
-  };
+  }, [sessionStatus, session, router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            Authenticating...
+            Completing Sign In
           </h2>
           <p className="mt-2 text-sm text-gray-600">{status}</p>
           
-          {user && (
+          {session?.user && (
             <div className="mt-4 p-4 bg-green-100 rounded-md">
-              <p className="text-green-800">Welcome, {(user as any).name}!</p>
-              <p className="text-green-600 text-sm">{(user as any).email}</p>
+              <p className="text-green-800">Welcome back, {session.user.name}!</p>
+              <p className="text-green-600 text-sm">{session.user.email}</p>
             </div>
           )}
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AuthCallback() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+            Loading...
+          </h2>
+          <p className="mt-2 text-sm text-gray-600">Please wait while we verify your authentication...</p>
+        </div>
+      </div>
+    }>
+      <AuthCallbackContent />
+    </Suspense>
   );
 }

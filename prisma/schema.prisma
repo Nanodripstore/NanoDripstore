@@ -5,7 +5,7 @@ generator client {
 
 // 2. DATASOURCE: Where your database lives
 datasource db {
-  provider = "sqlite"                        // SQLite for local, libsql for Turso
+  provider = "sqlite"                        // SQLite compatible
   url      = env("DATABASE_URL")            // Connection string from .env file
 }
 

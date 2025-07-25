@@ -6,8 +6,10 @@ const nextConfig = {
   images: { 
     unoptimized: true 
   },
-  // Ensure compatibility with Netlify
-  trailingSlash: false,
+  // Optimize for Netlify deployment
+  experimental: {
+    serverComponentsExternalPackages: ['@prisma/client']
+  }
 };
 
 module.exports = nextConfig;

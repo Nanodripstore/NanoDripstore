@@ -10,8 +10,8 @@
   NPM_VERSION = "9"
   NEXT_TELEMETRY_DISABLED = "1"
   SECRETS_SCAN_ENABLED = "false"
-  # Provide a dummy DATABASE_URL for build time validation
-  DATABASE_URL = "file:./temp.db"
+  # Provide a proper SQLite DATABASE_URL for build time validation
+  DATABASE_URL = "file:./prisma/dev.db"
 
 # Environment variables that need to be set in Netlify Dashboard
 # These are just documentation - actual values must be set in Netlify UI

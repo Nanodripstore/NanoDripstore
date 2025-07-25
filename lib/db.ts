@@ -4,12 +4,6 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-import { PrismaClient } from '@prisma/client'
-
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
-}
-
 export const prisma = globalForPrisma.prisma ?? (() => {
   console.log('Environment:', process.env.NODE_ENV)
   console.log('Has TURSO_DATABASE_URL:', !!process.env.TURSO_DATABASE_URL)

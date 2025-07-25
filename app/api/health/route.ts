@@ -1,9 +1,30 @@
 import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
 
 export async function GET() {
-  return NextResponse.json({ 
-    status: 'OK', 
-    message: 'NanoDrip Store API is running',
-    timestamp: new Date().toISOString()
-  })
+  try {
+    // Test database connection
+    await prisma.$connect()
+    
+    // Test a simple query
+    const userCount = await prisma.user.count()
+    
+    return NextResponse.json({ 
+      status: 'OK', 
+      message: 'NanoDrip Store API is running',
+      database: 'Connected',
+      userCount,
+      environment: process.env.NODE_ENV,
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('Health check failed:', error)
+    
+    return NextResponse.json({
+      status: 'ERROR',
+      message: 'Database connection failed',
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString()
+    }, { status: 500 })
+  }
 }

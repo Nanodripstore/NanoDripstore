@@ -22,7 +22,7 @@ export class GoogleAuth {
     return `https://accounts.google.com/oauth2/auth?${params.toString()}`;
   }
 
-  // Exchange code for tokens
+  // Exchange code for tokens 
   async exchangeCodeForTokens(code: string) {
     const response = await fetch('/api/auth/google-exchange', {
       method: 'POST',

@@ -1,6 +1,7 @@
 // 1. GENERATOR: Tells Prisma what code to generate
 generator client {
   provider = "prisma-client-js"  // Generate JavaScript client
+  previewFeatures = ["driverAdapters"]
 }
 
 // 2. DATASOURCE: Where your database lives

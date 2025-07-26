@@ -1,0 +1,37 @@
+# Netlify Environment Variables Template
+# Copy these to your Netlify Dashboard: Site Settings > Environment Variables
+
+# Authentication
+NEXTAUTH_URL=https://your-domain.netlify.app
+NEXTAUTH_SECRET=your-generated-secret-here
+NODE_ENV=production
+
+# Google OAuth (Production)
+AUTH_GOOGLE_ID=your-production-google-client-id
+AUTH_GOOGLE_SECRET=your-production-google-client-secret
+
+# Database (Turso)
+DATABASE_URL=libsql://your-database-name.turso.io?authToken=your-auth-token
+TURSO_AUTH_TOKEN=your-turso-auth-token
+
+# Optional: If using separate migration database
+TURSO_DATABASE_URL=libsql://your-database-name.turso.io
+
+# Instructions:
+# 1. Go to your Netlify Dashboard
+# 2. Select your site
+# 3. Go to Site settings > Environment variables
+# 4. Add each variable with its actual value (not the placeholder)
+# 5. Deploy your site
+
+# To generate NEXTAUTH_SECRET:
+# Run: openssl rand -base64 32
+# Or visit: https://generate-secret.vercel.app/32
+
+# For Google OAuth:
+# 1. Go to Google Cloud Console
+# 2. Create/select your project
+# 3. Enable Google+ API
+# 4. Create OAuth 2.0 credentials
+# 5. Add your production domain to authorized origins
+# 6. Add your callback URL: https://your-domain.com/api/auth/callback/google

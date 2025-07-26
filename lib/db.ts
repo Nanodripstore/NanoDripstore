@@ -13,21 +13,22 @@ export const prisma = globalForPrisma.prisma ?? (() => {
   let databaseUrl: string
   
   if (process.env.NODE_ENV === 'production') {
-    // Production: Use Turso HTTPS URL with auth token
-    if (process.env.TURSO_AUTH_TOKEN) {
-      // Use HTTPS URL format for Turso
-      databaseUrl = `https://nanodrip-store-nanodrip-store.aws-ap-south-1.turso.io?authToken=${process.env.TURSO_AUTH_TOKEN}`
-      console.log('🚀 Using Turso HTTPS database')
+    // Production: Use Turso with HTTP URL and auth token
+    if (process.env.TURSO_DATABASE_URL && process.env.TURSO_AUTH_TOKEN) {
+      // Convert libsql:// to https:// for HTTP access
+      const tursoUrl = process.env.TURSO_DATABASE_URL.replace('libsql://', 'https://')
+      databaseUrl = `${tursoUrl}?authToken=${process.env.TURSO_AUTH_TOKEN}`
+      console.log('🚀 Using Turso database via HTTP')
     } else if (process.env.DATABASE_URL) {
       databaseUrl = process.env.DATABASE_URL
-      console.log('🚀 Using DATABASE_URL')
+      console.log('🚀 Using DATABASE_URL fallback')
     } else {
-      throw new Error('Missing database credentials: Need TURSO_AUTH_TOKEN or DATABASE_URL')
+      throw new Error('Missing database credentials: Need TURSO_DATABASE_URL and TURSO_AUTH_TOKEN')
     }
   } else {
     // Development: Use local SQLite
     databaseUrl = process.env.DATABASE_URL || 'file:./prisma/dev.db'
-    console.log('🏠 Using local SQLite')
+    console.log('🏠 Using local SQLite:', databaseUrl)
   }
   
   return new PrismaClient({

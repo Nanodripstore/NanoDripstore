@@ -7,7 +7,6 @@ generator client {
 datasource db {
   provider = "sqlite"                        // SQLite compatible with Turso
   url      = env("DATABASE_URL")            // Connection string from .env file
-  directUrl = env("TURSO_DATABASE_URL")     // Optional: Direct connection for migrations
 }
 
 // 3. MODELS: These become tables in your database

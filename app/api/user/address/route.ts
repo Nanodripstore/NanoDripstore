@@ -1,16 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { randomUUID } from 'crypto';
 
 // Add a new address
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     
     if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      return Response.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
     const user = await db.user.findUnique({
@@ -18,7 +17,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return Response.json({ error: 'User not found' }, { status: 404 });
     }
 
     const data = await request.json();
@@ -26,7 +25,7 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!name || !street || !city || !state || !zipCode || !country) {
-      return NextResponse.json({ error: 'All address fields are required' }, { status: 400 });
+      return Response.json({ error: 'All address fields are required' }, { status: 400 });
     }
 
     // If this is the default address, unset any existing default addresses
@@ -52,20 +51,20 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    return NextResponse.json(address);
+    return Response.json(address);
   } catch (error) {
     console.error('Error adding address:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 // Update an address
-export async function PUT(request: NextRequest) {
+export async function PUT(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     
     if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      return Response.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
     const user = await db.user.findUnique({
@@ -73,14 +72,14 @@ export async function PUT(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return Response.json({ error: 'User not found' }, { status: 404 });
     }
 
     const data = await request.json();
     const { id, name, street, city, state, zipCode, country, isDefault } = data;
 
     if (!id) {
-      return NextResponse.json({ error: 'Address ID is required' }, { status: 400 });
+      return Response.json({ error: 'Address ID is required' }, { status: 400 });
     }
 
     // Verify the address belongs to the user
@@ -92,7 +91,7 @@ export async function PUT(request: NextRequest) {
     });
 
     if (!existingAddress) {
-      return NextResponse.json({ error: 'Address not found or does not belong to user' }, { status: 404 });
+      return Response.json({ error: 'Address not found or does not belong to user' }, { status: 404 });
     }
 
     // If this will be the default address, unset any existing default addresses
@@ -117,20 +116,20 @@ export async function PUT(request: NextRequest) {
       }
     });
 
-    return NextResponse.json(updatedAddress);
+    return Response.json(updatedAddress);
   } catch (error) {
     console.error('Error updating address:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 // Delete an address
-export async function DELETE(request: NextRequest) {
+export async function DELETE(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     
     if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      return Response.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
     const user = await db.user.findUnique({
@@ -138,14 +137,14 @@ export async function DELETE(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return Response.json({ error: 'User not found' }, { status: 404 });
     }
 
     const { searchParams } = new URL(request.url);
     const addressId = searchParams.get('id');
 
     if (!addressId) {
-      return NextResponse.json({ error: 'Address ID is required' }, { status: 400 });
+      return Response.json({ error: 'Address ID is required' }, { status: 400 });
     }
 
     // Verify the address belongs to the user
@@ -157,16 +156,16 @@ export async function DELETE(request: NextRequest) {
     });
 
     if (!existingAddress) {
-      return NextResponse.json({ error: 'Address not found or does not belong to user' }, { status: 404 });
+      return Response.json({ error: 'Address not found or does not belong to user' }, { status: 404 });
     }
 
     await db.addresses.delete({
       where: { id: addressId }
     });
 
-    return NextResponse.json({ success: true });
+    return Response.json({ success: true });
   } catch (error) {
     console.error('Error deleting address:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

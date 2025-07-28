@@ -1,18 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { StatusCodes } from 'http-status-codes'
 
-export async function GET(req: NextRequest) {
+export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.email) {
-      return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), {
-        status: StatusCodes.UNAUTHORIZED,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      return Response.json({ error: 'Unauthorized' }, { status: StatusCodes.UNAUTHORIZED })
     }
 
     const user = await db.user.findUnique({
@@ -23,10 +19,7 @@ export async function GET(req: NextRequest) {
     })
 
     if (!user) {
-      return new NextResponse(JSON.stringify({ error: 'User not found' }), {
-        status: StatusCodes.NOT_FOUND,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      return Response.json({ error: 'User not found' }, { status: StatusCodes.NOT_FOUND })
     }
 
     const orders = await db.orders.findMany({
@@ -47,12 +40,9 @@ export async function GET(req: NextRequest) {
       }
     })
 
-    return NextResponse.json(orders)
+    return Response.json(orders)
   } catch (error) {
     console.error('Error fetching orders:', error)
-    return new NextResponse(JSON.stringify({ error: 'Internal server error' }), {
-      status: StatusCodes.INTERNAL_SERVER_ERROR,
-      headers: { 'Content-Type': 'application/json' }
-    })
+    return Response.json({ error: 'Internal server error' }, { status: StatusCodes.INTERNAL_SERVER_ERROR })
   }
 }

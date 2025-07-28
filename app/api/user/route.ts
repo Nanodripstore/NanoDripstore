@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hash } from "bcryptjs";
 import * as z from "zod";
@@ -24,14 +23,14 @@ export async function POST(req: Request) {
       where: { email: email }
     });
     if (exitingUserByEmail) {
-      return NextResponse.json({ user: null, message: "User with this email already exists" }, { status: 409 });
+      return Response.json({ user: null, message: "User with this email already exists" }, { status: 409 });
     }
     //check if username already exists
     const exitingUserByUsername = await db.user.findUnique({
       where: { name: username }
     });
     if (exitingUserByUsername) {
-      return NextResponse.json({ user: null, message: "User with this username already exists" }, { status: 409 });
+      return Response.json({ user: null, message: "User with this username already exists" }, { status: 409 });
     }
 
     const hashedPassword = await hash(password, 10);
@@ -44,8 +43,8 @@ export async function POST(req: Request) {
     });
     const { password: newUserPassword , ...rest } = newUser;
 
-    return NextResponse.json({user: rest, message: "User created successfully"}, {status: 201});
+    return Response.json({user: rest, message: "User created successfully"}, {status: 201});
   } catch (error) {
-    return NextResponse.json({ user: null, message: "Something went wrong" }, { status: 500 });
+    return Response.json({ user: null, message: "Something went wrong" }, { status: 500 });
   }
 }

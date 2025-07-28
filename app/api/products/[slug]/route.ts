@@ -1,11 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { StatusCodes } from 'http-status-codes'
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { slug: string } }
-) {
+export async function GET(req: Request, context: { params: { slug: string } }) {
   try {
     // Since the schema doesn't have a slug field, we'll need to create a slug from the name
     // Get all products
@@ -13,11 +9,11 @@ export async function GET(
     
     // Create slugs for each product and find the one that matches the requested slug
     const product = products.find(p => 
-      p.name.toLowerCase().replace(/\s+/g, '-') === params.slug
+      p.name.toLowerCase().replace(/\s+/g, '-') === context.params.slug
     )
     
     if (!product) {
-      return new NextResponse(JSON.stringify({ error: 'Product not found' }), {
+      return new Response(JSON.stringify({ error: 'Product not found' }), {
         status: StatusCodes.NOT_FOUND,
         headers: { 'Content-Type': 'application/json' }
       })
@@ -43,16 +39,16 @@ export async function GET(
     })
     
     // Return product with calculated fields
-    return NextResponse.json({
+    return Response.json({
       ...product,
-      slug: params.slug,
+      slug: context.params.slug,
       averageRating: product.rating,
       reviewCount: product.reviews,
       relatedProducts: relatedWithRating
     })
   } catch (error) {
     console.error('Error fetching product details:', error)
-    return new NextResponse(JSON.stringify({ error: 'Internal server error' }), {
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: StatusCodes.INTERNAL_SERVER_ERROR,
       headers: { 'Content-Type': 'application/json' }
     })

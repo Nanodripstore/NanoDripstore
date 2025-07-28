@@ -1,17 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { StatusCodes } from 'http-status-codes'
 
-export async function GET(req: NextRequest) {
+export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.email) {
-      return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), {
-        status: StatusCodes.UNAUTHORIZED,
-        headers: { 'Content-Type': 'application/json' }
+      return Response.json({ error: 'Unauthorized' }, {
+        status: StatusCodes.UNAUTHORIZED
       })
     }
 
@@ -23,10 +21,7 @@ export async function GET(req: NextRequest) {
     })
 
     if (!user) {
-      return new NextResponse(JSON.stringify({ error: 'User not found' }), {
-        status: StatusCodes.NOT_FOUND,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      return Response.json({ error: 'User not found' }, { status: StatusCodes.NOT_FOUND })
     }
 
     const cartItems = await db.cart_items.findMany({
@@ -49,45 +44,33 @@ export async function GET(req: NextRequest) {
       return sum + (item.products.price * item.quantity)
     }, 0)
 
-    return NextResponse.json({
+    return Response.json({
       items: cartItems,
       subtotal,
       count: cartItems.length
     })
   } catch (error) {
     console.error('Error fetching cart:', error)
-    return new NextResponse(JSON.stringify({ error: 'Internal server error' }), {
-      status: StatusCodes.INTERNAL_SERVER_ERROR,
-      headers: { 'Content-Type': 'application/json' }
-    })
+    return Response.json({ error: 'Internal server error' }, { status: StatusCodes.INTERNAL_SERVER_ERROR })
   }
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.email) {
-      return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), {
-        status: StatusCodes.UNAUTHORIZED,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      return Response.json({ error: 'Unauthorized' }, { status: StatusCodes.UNAUTHORIZED })
     }
 
     const { productId, quantity, size, color } = await req.json()
     
     if (!productId || quantity === undefined) {
-      return new NextResponse(JSON.stringify({ error: 'Product ID and quantity are required' }), {
-        status: StatusCodes.BAD_REQUEST,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      return Response.json({ error: 'Product ID and quantity are required' }, { status: StatusCodes.BAD_REQUEST })
     }
 
     if (quantity < 1) {
-      return new NextResponse(JSON.stringify({ error: 'Quantity must be at least 1' }), {
-        status: StatusCodes.BAD_REQUEST,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      return Response.json({ error: 'Quantity must be at least 1' }, { status: StatusCodes.BAD_REQUEST })
     }
 
     const user = await db.user.findUnique({
@@ -98,10 +81,7 @@ export async function POST(req: NextRequest) {
     })
 
     if (!user) {
-      return new NextResponse(JSON.stringify({ error: 'User not found' }), {
-        status: StatusCodes.NOT_FOUND,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      return Response.json({ error: 'User not found' }, { status: StatusCodes.NOT_FOUND })
     }
 
     // Check if product exists
@@ -110,10 +90,7 @@ export async function POST(req: NextRequest) {
     })
 
     if (!product) {
-      return new NextResponse(JSON.stringify({ error: 'Product not found' }), {
-        status: StatusCodes.NOT_FOUND,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      return Response.json({ error: 'Product not found' }, { status: StatusCodes.NOT_FOUND })
     }
 
     // Check if item is already in the cart
@@ -162,10 +139,7 @@ export async function POST(req: NextRequest) {
       })
       
       if (!productDetails) {
-        return new NextResponse(JSON.stringify({ error: 'Product details not found' }), {
-          status: StatusCodes.NOT_FOUND,
-          headers: { 'Content-Type': 'application/json' }
-        })
+        return Response.json({ error: 'Product details not found' }, { status: StatusCodes.NOT_FOUND })
       }
       
       // Add new item to cart
@@ -201,43 +175,31 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    return NextResponse.json(cartItem, { 
+    return Response.json(cartItem, { 
       status: existingCartItem ? StatusCodes.OK : StatusCodes.CREATED 
     })
   } catch (error) {
     console.error('Error adding item to cart:', error)
-    return new NextResponse(JSON.stringify({ error: 'Internal server error' }), {
-      status: StatusCodes.INTERNAL_SERVER_ERROR,
-      headers: { 'Content-Type': 'application/json' }
-    })
+    return Response.json({ error: 'Internal server error' }, { status: StatusCodes.INTERNAL_SERVER_ERROR })
   }
 }
 
-export async function PUT(req: NextRequest) {
+export async function PUT(req: Request) {
   try {
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.email) {
-      return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), {
-        status: StatusCodes.UNAUTHORIZED,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      return Response.json({ error: 'Unauthorized' }, { status: StatusCodes.UNAUTHORIZED })
     }
 
     const { productId, quantity, size, color } = await req.json()
     
     if (!productId || quantity === undefined) {
-      return new NextResponse(JSON.stringify({ error: 'Product ID and quantity are required' }), {
-        status: StatusCodes.BAD_REQUEST,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      return Response.json({ error: 'Product ID and quantity are required' }, { status: StatusCodes.BAD_REQUEST })
     }
 
     if (quantity < 1) {
-      return new NextResponse(JSON.stringify({ error: 'Quantity must be at least 1' }), {
-        status: StatusCodes.BAD_REQUEST,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      return Response.json({ error: 'Quantity must be at least 1' }, { status: StatusCodes.BAD_REQUEST })
     }
 
     const user = await db.user.findUnique({
@@ -248,10 +210,7 @@ export async function PUT(req: NextRequest) {
     })
 
     if (!user) {
-      return new NextResponse(JSON.stringify({ error: 'User not found' }), {
-        status: StatusCodes.NOT_FOUND,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      return Response.json({ error: 'User not found' }, { status: StatusCodes.NOT_FOUND })
     }
 
     // Check if product exists
@@ -260,10 +219,7 @@ export async function PUT(req: NextRequest) {
     })
 
     if (!product) {
-      return new NextResponse(JSON.stringify({ error: 'Product not found' }), {
-        status: StatusCodes.NOT_FOUND,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      return Response.json({ error: 'Product not found' }, { status: StatusCodes.NOT_FOUND })
     }
 
     // Find the cart item to update or create
@@ -312,10 +268,7 @@ export async function PUT(req: NextRequest) {
       })
       
       if (!productDetails) {
-        return new NextResponse(JSON.stringify({ error: 'Product details not found' }), {
-          status: StatusCodes.NOT_FOUND,
-          headers: { 'Content-Type': 'application/json' }
-        })
+        return Response.json({ error: 'Product details not found' }, { status: StatusCodes.NOT_FOUND })
       }
       
       // Add new item to cart with the required fields
@@ -351,27 +304,21 @@ export async function PUT(req: NextRequest) {
       })
     }
 
-    return NextResponse.json(cartItem, { 
+    return Response.json(cartItem, { 
       status: existingCartItem ? StatusCodes.OK : StatusCodes.CREATED 
     })
   } catch (error) {
     console.error('Error updating item in cart:', error)
-    return new NextResponse(JSON.stringify({ error: 'Internal server error' }), {
-      status: StatusCodes.INTERNAL_SERVER_ERROR,
-      headers: { 'Content-Type': 'application/json' }
-    })
+    return Response.json({ error: 'Internal server error' }, { status: StatusCodes.INTERNAL_SERVER_ERROR })
   }
 }
 
-export async function DELETE(req: NextRequest) {
+export async function DELETE(req: Request) {
   try {
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.email) {
-      return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), {
-        status: StatusCodes.UNAUTHORIZED,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      return Response.json({ error: 'Unauthorized' }, { status: StatusCodes.UNAUTHORIZED })
     }
 
     const user = await db.user.findUnique({
@@ -382,10 +329,7 @@ export async function DELETE(req: NextRequest) {
     })
 
     if (!user) {
-      return new NextResponse(JSON.stringify({ error: 'User not found' }), {
-        status: StatusCodes.NOT_FOUND,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      return Response.json({ error: 'User not found' }, { status: StatusCodes.NOT_FOUND })
     }
 
     // Check if a specific cart item ID was provided in the URL query
@@ -401,26 +345,17 @@ export async function DELETE(req: NextRequest) {
         }
       })
       
-      return new NextResponse(JSON.stringify({ message: 'Cart item removed successfully' }), {
-        status: StatusCodes.OK,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      return Response.json({ message: 'Cart item removed successfully' }, { status: StatusCodes.OK })
     } else {
       // Clear all cart items for the user
       await db.cart_items.deleteMany({
         where: { userId: user.id }
       })
 
-      return new NextResponse(JSON.stringify({ message: 'Cart cleared successfully' }), {
-        status: StatusCodes.OK,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      return Response.json({ message: 'Cart cleared successfully' }, { status: StatusCodes.OK })
     }
   } catch (error) {
     console.error('Error clearing cart:', error)
-    return new NextResponse(JSON.stringify({ error: 'Internal server error' }), {
-      status: StatusCodes.INTERNAL_SERVER_ERROR,
-      headers: { 'Content-Type': 'application/json' }
-    })
+    return Response.json({ error: 'Internal server error' }, { status: StatusCodes.INTERNAL_SERVER_ERROR })
   }
 }

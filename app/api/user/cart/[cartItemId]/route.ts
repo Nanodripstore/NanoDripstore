@@ -1,4 +1,3 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { db } from '@/lib/db'
@@ -6,27 +5,23 @@ import { StatusCodes } from 'http-status-codes'
 
 // Using dynamic route segments: [cartItemId]
 export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { cartItemId: string } }
+  req: Request,
+  context: { params: { cartItemId: string } }
 ) {
   try {
-    const cartItemId = params.cartItemId
+    const cartItemId = context.params.cartItemId
     const { quantity } = await req.json()
 
     if (quantity === undefined || quantity < 1) {
-      return new NextResponse(JSON.stringify({ error: 'Valid quantity is required' }), {
-        status: StatusCodes.BAD_REQUEST,
-        headers: { 'Content-Type': 'application/json' }
+      return Response.json({ error: 'Valid quantity is required' }, {
+        status: StatusCodes.BAD_REQUEST
       })
     }
 
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.email) {
-      return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), {
-        status: StatusCodes.UNAUTHORIZED,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      return Response.json({ error: 'Unauthorized' }, { status: StatusCodes.UNAUTHORIZED })
     }
 
     const user = await db.user.findUnique({
@@ -37,10 +32,7 @@ export async function PATCH(
     })
 
     if (!user) {
-      return new NextResponse(JSON.stringify({ error: 'User not found' }), {
-        status: StatusCodes.NOT_FOUND,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      return Response.json({ error: 'User not found' }, { status: StatusCodes.NOT_FOUND })
     }
 
     // Check if cart item exists and belongs to the user
@@ -59,26 +51,19 @@ export async function PATCH(
     })
 
     if (!cartItem) {
-      return new NextResponse(JSON.stringify({ error: 'Cart item not found' }), {
-        status: StatusCodes.NOT_FOUND,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      return Response.json({ error: 'Cart item not found' }, { status: StatusCodes.NOT_FOUND })
     }
 
     if (cartItem.userId !== user.id) {
-      return new NextResponse(JSON.stringify({ error: 'Not authorized to update this item' }), {
-        status: StatusCodes.FORBIDDEN,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      return Response.json({ error: 'Not authorized to update this item' }, { status: StatusCodes.FORBIDDEN })
     }
 
     // Verify item exists
     if (!cartItem.products) {
-      return new NextResponse(JSON.stringify({ 
+      return Response.json({ 
         error: 'Product not available'
-      }), {
-        status: StatusCodes.BAD_REQUEST,
-        headers: { 'Content-Type': 'application/json' }
+      }, {
+        status: StatusCodes.BAD_REQUEST
       })
     }
 
@@ -98,30 +83,24 @@ export async function PATCH(
       }
     })
 
-    return NextResponse.json(updatedCartItem)
+    return Response.json(updatedCartItem)
   } catch (error) {
     console.error('Error updating cart item:', error)
-    return new NextResponse(JSON.stringify({ error: 'Internal server error' }), {
-      status: StatusCodes.INTERNAL_SERVER_ERROR,
-      headers: { 'Content-Type': 'application/json' }
-    })
+    return Response.json({ error: 'Internal server error' }, { status: StatusCodes.INTERNAL_SERVER_ERROR })
   }
 }
 
 export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { cartItemId: string } }
+  req: Request,
+  context: { params: { cartItemId: string } }
 ) {
   try {
-    const cartItemId = params.cartItemId
+    const cartItemId = context.params.cartItemId
 
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.email) {
-      return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), {
-        status: StatusCodes.UNAUTHORIZED,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      return Response.json({ error: 'Unauthorized' }, { status: StatusCodes.UNAUTHORIZED })
     }
 
     const user = await db.user.findUnique({
@@ -132,10 +111,7 @@ export async function DELETE(
     })
 
     if (!user) {
-      return new NextResponse(JSON.stringify({ error: 'User not found' }), {
-        status: StatusCodes.NOT_FOUND,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      return Response.json({ error: 'User not found' }, { status: StatusCodes.NOT_FOUND })
     }
 
     // Check if cart item exists and belongs to the user
@@ -144,17 +120,11 @@ export async function DELETE(
     })
 
     if (!cartItem) {
-      return new NextResponse(JSON.stringify({ error: 'Cart item not found' }), {
-        status: StatusCodes.NOT_FOUND,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      return Response.json({ error: 'Cart item not found' }, { status: StatusCodes.NOT_FOUND })
     }
 
     if (cartItem.userId !== user.id) {
-      return new NextResponse(JSON.stringify({ error: 'Not authorized to remove this item' }), {
-        status: StatusCodes.FORBIDDEN,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      return Response.json({ error: 'Not authorized to remove this item' }, { status: StatusCodes.FORBIDDEN })
     }
 
     // Delete the cart item
@@ -162,15 +132,9 @@ export async function DELETE(
       where: { id: cartItemId }
     })
 
-    return new NextResponse(JSON.stringify({ message: 'Cart item removed successfully' }), {
-      status: StatusCodes.OK,
-      headers: { 'Content-Type': 'application/json' }
-    })
+    return Response.json({ message: 'Cart item removed successfully' }, { status: StatusCodes.OK })
   } catch (error) {
     console.error('Error removing cart item:', error)
-    return new NextResponse(JSON.stringify({ error: 'Internal server error' }), {
-      status: StatusCodes.INTERNAL_SERVER_ERROR,
-      headers: { 'Content-Type': 'application/json' }
-    })
+    return Response.json({ error: 'Internal server error' }, { status: StatusCodes.INTERNAL_SERVER_ERROR })
   }
 }

@@ -1,15 +1,15 @@
-import './globals.css';
+import '@/style/globals.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
-import { ThemeProvider } from '@/components/theme-provider';
-import { Toaster } from '@/components/ui/sonner';
-import { SessionProvider } from 'next-auth/react';
+import { Toaster } from "@/components/ui/toaster"
+import Navbar from '@/components/navbar';
+import { Providers } from '@/components/providers';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'NanoDrip - Exclusive Collections For Z-Generation',
-  description: 'Discover our exclusive collections of premium streetwear designed specifically for the Z-Generation.',
+  title: 'Next.js Forms',
+  description: 'A tutorial project for Next.js forms with shadcn/ui',
 };
 
 export default function RootLayout({
@@ -20,18 +20,14 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <SessionProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="light"
-            enableSystem
-            disableTransitionOnChange={false}
-          >
+        <Providers>
+          <main className="h-screen flex flex-col justify-center items-center">
+            <Navbar />
             {children}
-            <Toaster />
-          </ThemeProvider>
-        </SessionProvider>
+          </main>
+          <Toaster />
+        </Providers>
       </body>
-    </html>
+    </html >
   );
 }

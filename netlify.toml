@@ -2,25 +2,13 @@
   command = "npm run build"
   publish = ".next"
 
+[build.environment]
+  NEXT_USE_NETLIFY_EDGE = "true"
+
+[[redirects]]
+  from = "/*"
+  to = "/_netlify_edge_functions_bridge"
+  status = 200
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
-
-[build.environment]
-  NODE_VERSION = "18"
-  NPM_VERSION = "9"
-  NEXT_TELEMETRY_DISABLED = "1"
-  SECRETS_SCAN_ENABLED = "false"
-  # Provide a proper SQLite DATABASE_URL for build time validation
-  DATABASE_URL = "file:./prisma/dev.db"
-
-# Environment variables that need to be set in Netlify Dashboard
-# These are just documentation - actual values must be set in Netlify UI
-[context.production.environment]
-  NODE_ENV = "production"
-  # NEXTAUTH_URL = "https://nanodripstore.in"
-  # NEXTAUTH_SECRET = "your-secret-here"
-  # GOOGLE_CLIENT_ID = "your-google-client-id"
-  # GOOGLE_CLIENT_SECRET = "your-google-client-secret"
-  # DATABASE_URL = "libsql://your-database.turso.io?authToken=your-token"
-  # TURSO_DATABASE_URL = "libsql://your-database.turso.io"
-  # TURSO_AUTH_TOKEN = "your-turso-token"

@@ -3,12 +3,17 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  images: { 
-    unoptimized: true 
-  },
-  // Optimize for Netlify deployment
-  experimental: {
-    serverComponentsExternalPackages: ['@prisma/client']
+  // Updated from experimental.serverComponentsExternalPackages
+  serverExternalPackages: [],
+  // Add Clerk domain to allowed image domains if you're using their avatars
+  images: {
+    unoptimized: true,
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'img.clerk.com',
+      }
+    ],
   }
 };
 

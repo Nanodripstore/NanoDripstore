@@ -2,17 +2,25 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ShoppingBag, Menu, Sun, Moon } from 'lucide-react';
+import { ShoppingBag, Menu, Sun, Moon, User } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { usePathname } from 'next/navigation';
-import { useSession, signIn } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import { useCartStore } from '@/lib/cart-store';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import CartSidebar from './cart-sidebar';
-import UserDropdown from './user-dropdown';
 import Link from 'next/link';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuLabel, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
 
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
@@ -21,7 +29,7 @@ export default function Header() {
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
   const isHomepage = pathname === '/';
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
 
   useEffect(() => {
     setMounted(true);
@@ -124,55 +132,75 @@ export default function Header() {
 
             {/* Cart and Auth */}
             <div className="flex items-center gap-2">
-              {session && session?.user ? (
-                <>
-                  <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="relative"
-                  >
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={`h-8 w-8 sm:h-10 sm:w-10 ${isHomepage && !scrolled ? 'text-white hover:text-white hover:bg-white/10' : ''}`}
-                      onClick={openCart}
+              {/* Cart button always visible */}
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="relative"
+              >
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={`h-8 w-8 sm:h-10 sm:w-10 ${isHomepage && !scrolled ? 'text-white hover:text-white hover:bg-white/10' : ''}`}
+                  onClick={openCart}
+                >
+                  <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5" />
+                  {getTotalItems() > 0 && (
+                    <Badge
+                      variant="destructive"
+                      className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 h-4 w-4 sm:h-5 sm:w-5 rounded-full p-0 flex items-center justify-center text-xs"
                     >
-                      <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5" />
-                      {getTotalItems() > 0 && (
-                        <Badge
-                          variant="destructive"
-                          className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 h-4 w-4 sm:h-5 sm:w-5 rounded-full p-0 flex items-center justify-center text-xs"
-                        >
-                          {getTotalItems()}
-                        </Badge>
-                      )}
-                    </Button>
-                  </motion.div>
-                  <CartSidebar />
+                      {getTotalItems()}
+                    </Badge>
+                  )}
+                </Button>
+              </motion.div>
+              <CartSidebar />
 
-                  {/* User Dropdown */}
-                  <UserDropdown 
-                    isHomepage={isHomepage}
-                    scrolled={scrolled}
-                    getTextColor={getTextColor}
-                  />
-                </>
+              {/* User Authentication */}
+              {status === 'authenticated' && session?.user ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="rounded-full">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={session.user.image || undefined} alt={session.user.name || "User"} />
+                        <AvatarFallback>{session.user.name?.charAt(0) || "U"}</AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href="/dashboard">Dashboard</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/profile">Profile</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => signOut({ callbackUrl: '/' })}>
+                      Sign Out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               ) : (
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    onClick={() => signIn('google')}
-                    className={`text-sm ${getTextColor()} ${isHomepage && !scrolled ? 'text-white hover:text-white hover:bg-white/10' : ''}`}
-                  >
-                    Sign In
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={() => signIn('google')}
-                    className={`text-sm ${isHomepage && !scrolled ? ' text-white hover:text-white hover:bg-white/10' : ''}`}
-                  >
-                    Sign Up
-                  </Button>
+                  <Link href="/auth/signin">
+                    <Button
+                      variant="ghost"
+                      className={`text-sm ${getTextColor()} ${isHomepage && !scrolled ? 'text-white hover:text-white hover:bg-white/10' : ''}`}
+                    >
+                      Sign In
+                    </Button>
+                  </Link>
+                  <Link href="/auth/signup" className="hidden sm:block">
+                    <Button
+                      variant="outline"
+                      className={`text-sm ${isHomepage && !scrolled ? 'text-white hover:text-white border-white hover:bg-white/10' : ''}`}
+                    >
+                      Sign Up
+                    </Button>
+                  </Link>
                 </div>
               )}
             </div>
@@ -204,10 +232,10 @@ export default function Header() {
                   ))}
                   
                   {/* Mobile User Menu */}
-                  {session?.user && (
+                  {status === 'authenticated' && session?.user && (
                     <div className="border-t pt-6 mt-6 space-y-4">
                       <motion.a
-                        href="/profile"
+                        href="/dashboard"
                         className="text-base font-medium text-foreground/80 hover:text-foreground transition-colors"
                         initial={{ opacity: 0, x: 50 }}
                         animate={{ opacity: 1, x: 0 }}

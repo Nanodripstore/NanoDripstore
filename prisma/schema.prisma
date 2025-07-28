@@ -1,137 +1,78 @@
 // 1. GENERATOR: Tells Prisma what code to generate
 generator client {
-  provider = "prisma-client-js"  // Generate JavaScript client
-  previewFeatures = ["driverAdapters"]
+  provider = "prisma-client-js" // Generate JavaScript client
 }
 
 // 2. DATASOURCE: Where your database lives
 datasource db {
-  provider = "sqlite"                        // SQLite compatible with Turso
-  url      = env("DATABASE_URL")            // Connection string from .env file
+  provider  = "postgresql" // PostgreSQL database
+  url       = env("DATABASE_URL") // Connection string from .env file
+  directUrl = env("DIRECT_URL") // Direct connection URL (bypassing pooling)
 }
 
 // 3. MODELS: These become tables in your database
 
 // Users table - stores basic user info
+// model User {
+//   id        String    @id @default(cuid())
+//   email     String    @unique
+//   username  String    @unique
+//   password  String
+//   createdAt     DateTime  @default(now())      // Auto-set when created
+//   updatedAt     DateTime  @updatedAt           // Auto-update when modified
+// }
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
 model User {
-  id            String    @id @default(cuid())  // Primary key, auto-generated
-  email         String    @unique               // Must be unique
-  name          String?                         // ? means optional
+  id            String    @id @default(cuid())
+  username      String?   @unique
+  password      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime? 
   image         String?
-  phone         String?
-  createdAt     DateTime  @default(now())      // Auto-set when created
-  updatedAt     DateTime  @updatedAt           // Auto-update when modified
-  
-  // RELATIONSHIPS: Connect this user to other tables
-  cart          CartItem[]       // One user has many cart items
-  wishlist      WishlistItem[]   // One user has many wishlist items
-  orders        Order[]          // One user has many orders
-  addresses     Address[]        // One user has many addresses
-  
-  @@map("users")  // Actual table name in database
+  accounts      Account[]
+  sessions      Session[]
+
+  @@map("users")
 }
 
-// Cart items table - what's in each user's cart
-model CartItem {
-  id        String   @id @default(cuid())
-  userId    String                           // Which user owns this item
-  productId Int                              // Which product this is
-  name      String                           // Product name (copy for speed)
-  price     Float                            // Price when added to cart
-  color     String                           // Selected color
-  size      String                           // Selected size
-  image     String                           // Product image
-  type      String                           // hoodie/tshirt
-  quantity  Int      @default(1)             // How many of this item
-  createdAt DateTime @default(now())
-  
-  // FOREIGN KEY: Links back to User table
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // INDEXES: Speed up common queries
-  @@index([userId])
-  @@index([createdAt])
-  // UNIQUE CONSTRAINT: One user can't have duplicate items with same color/size
-  @@map("cart_items")
-}
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
 
-// Wishlist table - products user wants to buy later
-model WishlistItem {
-  id        String   @id @default(cuid())
-  userId    String
-  productId Int
-  name      String
-  price     Float
-  image     String
-  createdAt DateTime @default(now())
-  
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@unique([userId, productId])  // One user can't wishlist same product twice
-  @@map("wishlist_items")
-}
-
-// Orders table - completed purchases
-model Order {
-  id          String      @id @default(cuid())
-  userId      String
-  orderNumber String      @unique              // Human-readable order number
-  status      OrderStatus @default(PENDING)   // Using enum below
-  total       Float
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items       OrderItem[] // What was bought in this order
-  address     Address?    @relation(fields: [addressId], references: [id])
-  addressId   String?
-  
-  // INDEXES: Speed up user orders queries
-  @@index([userId])
-  @@index([createdAt])
-  @@map("orders")
-}
-
-// Order items - individual products in an order
-model OrderItem {
-  id        String @id @default(cuid())
-  orderId   String
-  productId Int
-  name      String
-  price     Float
-  color     String
-  size      String
-  image     String
-  quantity  Int
-  
-  order     Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  
-  @@map("order_items")
-}
-
-// Addresses - where to ship orders
-model Address {
-  id          String  @id @default(cuid())
-  userId      String
-  name        String              // "Home", "Work", etc.
-  street      String
-  city        String
-  state       String
-  zipCode     String
-  country     String
-  isDefault   Boolean @default(false)  // Primary shipping address
-  
-  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orders      Order[] // Orders shipped to this address
-  
-  @@map("addresses")
-}
-
-// ENUM: Predefined order statuses
-enum OrderStatus {
-  PENDING      // Just placed
-  PROCESSING   // Being prepared
-  SHIPPED      // On the way
-  DELIVERED    // Completed
-  CANCELLED    // Cancelled
+  @@unique([identifier, token])
+  @@map("verification_tokens")
 }

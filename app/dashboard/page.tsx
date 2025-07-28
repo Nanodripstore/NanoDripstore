@@ -1,6 +1,5 @@
 "use client";
 
-import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
@@ -15,7 +14,7 @@ import {
   Bell,
   LogOut
 } from 'lucide-react';
-import { signOut } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
 import { Button } from '@/components/ui/button';
@@ -23,6 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCartStore } from '@/lib/cart-store';
+import Image from 'next/image';
 
 export default function Dashboard() {
   const { data: session, status } = useSession();
@@ -32,10 +32,12 @@ export default function Dashboard() {
 
   useEffect(() => {
     setMounted(true);
-    if (status === 'unauthenticated') {
-      router.push('/');
+    
+    // Redirect if not authenticated
+    if (mounted && status === 'unauthenticated') {
+      router.push('/auth/signin');
     }
-  }, [status, router]);
+  }, [mounted, status, router]);
 
   if (!mounted || status === 'loading') {
     return (
@@ -44,10 +46,17 @@ export default function Dashboard() {
       </div>
     );
   }
-
-  if (!session?.user) {
-    return null;
-  }
+  
+  // Use NextAuth session data
+  const userData = session?.user ? { 
+    name: session.user.name || 'User', 
+    email: session.user.email || 'No email',
+    image: session.user.image || 'https://via.placeholder.com/150'
+  } : { 
+    name: "Guest User", 
+    email: "Not signed in", 
+    image: "https://via.placeholder.com/150" 
+  };
 
   // Mock data for demonstration
   const orderHistory = [
@@ -109,13 +118,16 @@ export default function Dashboard() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <h1 className="text-3xl md:text-4xl font-bold mb-2">
-                Welcome back, {session.user.name?.split(' ')[0]}!
+                Welcome back, {userData.name?.split(' ')[0]}!
               </h1>
               <p className="text-muted-foreground">
                 Manage your orders, wishlist, and account settings
               </p>
             </div>
-            <Button variant="outline" onClick={() => signOut()}>
+            <Button 
+              variant="outline" 
+              onClick={() => signOut({ callbackUrl: '/' })}
+            >
               <LogOut className="w-4 h-4 mr-2" />
               Sign Out
             </Button>
@@ -325,24 +337,24 @@ export default function Dashboard() {
                 <CardContent className="space-y-4">
                   <div className="flex items-center gap-4">
                     <img
-                      src={session.user.image || '/default-avatar.png'}
-                      alt={session.user.name || 'User'}
+                      src={userData.image || '/default-avatar.png'}
+                      alt={userData.name || 'User'}
                       className="w-16 h-16 rounded-full"
                     />
                     <div>
-                      <h3 className="text-lg font-semibold">{session.user.name}</h3>
-                      <p className="text-muted-foreground">{session.user.email}</p>
+                      <h3 className="text-lg font-semibold">{userData.name}</h3>
+                      <p className="text-muted-foreground">{userData.email}</p>
                     </div>
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-medium">Full Name</label>
-                      <p className="mt-1 p-2 border rounded">{session.user.name}</p>
+                      <p className="mt-1 p-2 border rounded">{userData.name}</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium">Email</label>
-                      <p className="mt-1 p-2 border rounded">{session.user.email}</p>
+                      <p className="mt-1 p-2 border rounded">{userData.email}</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium">Phone</label>

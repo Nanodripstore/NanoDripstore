@@ -66,7 +66,7 @@ const SignUpForm = () => {
           title: "Success",
           description: "Account created successfully. You can now sign in.",
         });
-        router.push('/auth/sign-in');
+        router.push('/sign-in');
       } else {
         const data = await response.json();
         toast({
@@ -160,7 +160,7 @@ const SignUpForm = () => {
       <GoogleSignInButton>Sign up with Google</GoogleSignInButton>
       <p className='text-center text-sm text-gray-600 mt-2'>
         Already have an account?&nbsp;
-        <Link className='text-blue-500 hover:underline' href='/auth/sign-in'>
+        <Link className='text-blue-500 hover:underline' href='/sign-in'>
           Sign in
         </Link>
       </p>

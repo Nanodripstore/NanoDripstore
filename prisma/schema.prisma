@@ -1,26 +1,12 @@
-// 1. GENERATOR: Tells Prisma what code to generate
 generator client {
-  provider = "prisma-client-js" // Generate JavaScript client
+  provider = "prisma-client-js"
 }
 
-// 2. DATASOURCE: Where your database lives
 datasource db {
-  provider  = "postgresql" // PostgreSQL database
-  url       = env("DATABASE_URL") // Connection string from .env file
-  directUrl = env("DIRECT_URL") // Direct connection URL (bypassing pooling)
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
-
-// 3. MODELS: These become tables in your database
-
-// Users table - stores basic user info
-// model User {
-//   id        String    @id @default(cuid())
-//   email     String    @unique
-//   username  String    @unique
-//   password  String
-//   createdAt     DateTime  @default(now())      // Auto-set when created
-//   updatedAt     DateTime  @updatedAt           // Auto-update when modified
-// }
 
 model Account {
   id                String  @id @default(cuid())
@@ -28,15 +14,14 @@ model Account {
   type              String
   provider          String
   providerAccountId String  @map("provider_account_id")
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
   @@map("accounts")
@@ -53,17 +38,21 @@ model Session {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  username      String?   @unique
-  password      String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime? 
-  image         String?
-  accounts      Account[]
-  sessions      Session[]
+  id             String           @id @default(cuid())
+  email          String?          @unique
+  password       String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  emailVerified  DateTime?
+  image          String?
+  name           String?          @unique
+  phone          String?
+  accounts       Account[]
+  addresses      addresses[]
+  cart_items     cart_items[]
+  orders         orders[]
+  sessions       Session[]
+  wishlist_items wishlist_items[]
 
   @@map("users")
 }
@@ -75,4 +64,108 @@ model VerificationToken {
 
   @@unique([identifier, token])
   @@map("verification_tokens")
+}
+
+model addresses {
+  id                                         String   @id
+  userId                                     String
+  name                                       String
+  street                                     String
+  city                                       String
+  state                                      String
+  zipCode                                    String
+  country                                    String
+  isDefault                                  Boolean  @default(false)
+  createdAt                                  DateTime @default(now())
+  updatedAt                                  DateTime
+  users                                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders_orders_billingAddressIdToaddresses  orders[] @relation("orders_billingAddressIdToaddresses")
+  orders_orders_shippingAddressIdToaddresses orders[] @relation("orders_shippingAddressIdToaddresses")
+}
+
+model cart_items {
+  id        String   @id
+  userId    String
+  productId Int
+  quantity  Int      @default(1)
+  color     String
+  size      String
+  name      String
+  price     Float
+  image     String
+  type      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  products  products @relation(fields: [productId], references: [id])
+  users     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId, color, size])
+}
+
+model order_items {
+  id        String   @id
+  orderId   String
+  productId Int
+  name      String
+  price     Float
+  quantity  Int
+  color     String
+  size      String
+  image     String
+  type      String
+  orders    orders   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  products  products @relation(fields: [productId], references: [id])
+}
+
+model orders {
+  id                                            String        @id
+  userId                                        String
+  orderNumber                                   String        @unique
+  status                                        String        @default("pending")
+  total                                         Float
+  shippingFee                                   Float         @default(0)
+  tax                                           Float         @default(0)
+  shippingAddressId                             String?
+  billingAddressId                              String?
+  paymentMethod                                 String?
+  paymentStatus                                 String        @default("pending")
+  notes                                         String?
+  createdAt                                     DateTime      @default(now())
+  updatedAt                                     DateTime
+  order_items                                   order_items[]
+  addresses_orders_billingAddressIdToaddresses  addresses?    @relation("orders_billingAddressIdToaddresses", fields: [billingAddressId], references: [id])
+  addresses_orders_shippingAddressIdToaddresses addresses?    @relation("orders_shippingAddressIdToaddresses", fields: [shippingAddressId], references: [id])
+  users                                         User          @relation(fields: [userId], references: [id])
+}
+
+model products {
+  id             Int              @id @default(autoincrement())
+  name           String
+  price          Float
+  description    String?
+  images         String[]
+  colors         Json?
+  sizes          String[]
+  type           String
+  category       String
+  isNew          Boolean          @default(false)
+  isBestseller   Boolean          @default(false)
+  rating         Float            @default(0)
+  reviews        Int              @default(0)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime
+  cart_items     cart_items[]
+  order_items    order_items[]
+  wishlist_items wishlist_items[]
+}
+
+model wishlist_items {
+  id        String   @id
+  userId    String
+  productId Int
+  createdAt DateTime @default(now())
+  products  products @relation(fields: [productId], references: [id])
+  users     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
 }

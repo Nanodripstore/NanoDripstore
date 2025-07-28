@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     }
     //check if username already exists
     const exitingUserByUsername = await db.user.findUnique({
-      where: { username: username }
+      where: { name: username }
     });
     if (exitingUserByUsername) {
       return NextResponse.json({ user: null, message: "User with this username already exists" }, { status: 409 });
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     const newUser = await db.user.create({
       data: {
         email,
-        username,
+        name: username, // Store username in the name field as per schema
         password: hashedPassword
       }
     });

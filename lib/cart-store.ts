@@ -39,42 +39,48 @@ export const useCartStore = create<CartStore>()(
       currentUserId: null,
       isUpdating: false,
       addItem: async (newItem) => {
-        // Prevent rapid clicking
+        // To make UI more responsive, we'll update local state immediately
+        // But we'll still use isUpdating to prevent double-clicks within a short timeframe (100ms)
         if (get().isUpdating) return;
         set({ isUpdating: true });
+        
+        // Use setTimeout to reset the updating flag after a short delay 
+        // This provides protection against double-clicks while not blocking the UI
+        setTimeout(() => set({ isUpdating: false }), 100);
 
-        try {
-          const items = get().items;
-          const existingItem = items.find(
-            item => item.id === newItem.id && item.color === newItem.color && item.size === newItem.size
+        const items = get().items;
+        const existingItem = items.find(
+          item => item.id === newItem.id && item.color === newItem.color && item.size === newItem.size
+        );
+
+        // Update local state immediately
+        if (existingItem) {
+          const newQuantity = existingItem.quantity + 1;
+          const updatedItems = items.map(item =>
+            item.id === newItem.id && item.color === newItem.color && item.size === newItem.size
+              ? { ...item, quantity: newQuantity }
+              : item
           );
-
-          if (existingItem) {
-            const newQuantity = existingItem.quantity + 1;
-            const updatedItems = items.map(item =>
-              item.id === newItem.id && item.color === newItem.color && item.size === newItem.size
-                ? { ...item, quantity: newQuantity }
-                : item
-            );
-            set({ items: updatedItems });
-            
-            // Update database if user is logged in - set exact quantity, don't add
-            const userId = get().currentUserId;
-            if (userId) {
-              await get().syncSetQuantityInDatabase(newItem, newQuantity);
-            }
-          } else {
-            const newCartItem = { ...newItem, quantity: 1 };
-            set({ items: [...items, newCartItem] });
-            
-            // Add to database if user is logged in
-            const userId = get().currentUserId;
-            if (userId) {
-              await get().syncSetQuantityInDatabase(newItem, 1);
-            }
+          set({ items: updatedItems });
+          
+          // Update database in background if user is logged in
+          const userId = get().currentUserId;
+          if (userId) {
+            // Don't await this, let it run in background
+            get().syncSetQuantityInDatabase(newItem, newQuantity)
+              .catch(err => console.error('Background cart sync failed:', err));
           }
-        } finally {
-          set({ isUpdating: false });
+        } else {
+          const newCartItem = { ...newItem, quantity: 1 };
+          set({ items: [...items, newCartItem] });
+          
+          // Add to database in background if user is logged in
+          const userId = get().currentUserId;
+          if (userId) {
+            // Don't await this, let it run in background
+            get().syncSetQuantityInDatabase(newItem, 1)
+              .catch(err => console.error('Background cart sync failed:', err));
+          }
         }
       },
       removeItem: async (id, color, size) => {
@@ -83,16 +89,19 @@ export const useCartStore = create<CartStore>()(
           item => item.id === id && item.color === color && item.size === size
         );
         
+        // Update UI immediately
         set({
           items: currentItems.filter(
             item => !(item.id === id && item.color === color && item.size === size)
           )
         });
 
-        // Remove from database if user is logged in
+        // Remove from database in background if user is logged in
         const userId = get().currentUserId;
         if (userId && itemToRemove) {
-          await get().syncRemoveFromDatabase(id, color, size);
+          // Run in background without awaiting
+          get().syncRemoveFromDatabase(id, color, size)
+            .catch(err => console.error('Background item removal failed:', err));
         }
       },
       updateQuantity: async (id, color, size, quantity) => {
@@ -101,6 +110,7 @@ export const useCartStore = create<CartStore>()(
           return;
         }
         
+        // Update local state immediately for responsive UI
         set({
           items: get().items.map(item =>
             item.id === id && item.color === color && item.size === size
@@ -109,12 +119,14 @@ export const useCartStore = create<CartStore>()(
           )
         });
 
-        // Update database if user is logged in - set exact quantity
+        // Update database in background if user is logged in
         const userId = get().currentUserId;
         if (userId) {
           const item = get().items.find(item => item.id === id && item.color === color && item.size === size);
           if (item) {
-            await get().syncSetQuantityInDatabase(item, quantity);
+            // Run in background without awaiting
+            get().syncSetQuantityInDatabase(item, quantity)
+              .catch(err => console.error('Background quantity update failed:', err));
           }
         }
       },
@@ -175,17 +187,20 @@ export const useCartStore = create<CartStore>()(
         try {
           const response = await fetch('/api/user/cart');
           if (response.ok) {
-            const dbCartItems = await response.json();
+            const data = await response.json();
+            // The API returns { items: cartItems[], subtotal, count }
+            const dbCartItems = data.items || [];
+            
             // Convert database format to store format
             const storeItems: CartItem[] = dbCartItems.map((dbItem: any) => ({
               id: dbItem.productId,
-              name: dbItem.name,
-              price: dbItem.price,
-              color: dbItem.color,
-              size: dbItem.size,
-              quantity: dbItem.quantity,
-              image: dbItem.image,
-              type: dbItem.type
+              name: dbItem.products?.name || 'Unknown Product',
+              price: dbItem.products?.price || 0,
+              color: dbItem.color || '',
+              size: dbItem.size || '',
+              quantity: dbItem.quantity || 1,
+              image: dbItem.products?.images?.[0] || '',
+              type: dbItem.type || 'tshirt'
             }));
             
             // Update both state and localStorage
@@ -196,7 +211,7 @@ export const useCartStore = create<CartStore>()(
           console.error('Error syncing cart with database:', error);
         }
       },
-      syncSetQuantityInDatabase: async (item: Omit<CartItem, 'quantity'>, quantity: number) => {
+      syncSetQuantityInDatabase: async (item: Omit<CartItem, 'quantity'>, quantity: number, retryCount = 0) => {
         try {
           // Use PUT method to set exact quantity instead of adding
           const response = await fetch('/api/user/cart', {
@@ -206,21 +221,34 @@ export const useCartStore = create<CartStore>()(
             },
             body: JSON.stringify({
               productId: item.id,
-              name: item.name,
-              price: item.price,
               color: item.color,
               size: item.size,
-              image: item.image,
-              type: item.type,
               quantity: quantity // Set exact quantity
             }),
           });
           
           if (!response.ok) {
-            console.error('Failed to sync item to database');
+            const errorData = await response.text();
+            console.error(`Failed to sync item to database: ${response.status}`, errorData);
+            
+            // If we get a server error and haven't retried too many times, try again
+            if (response.status >= 500 && retryCount < 2) {
+              console.log(`Retrying cart sync (attempt ${retryCount + 1})...`);
+              // Wait a bit before retrying
+              await new Promise(resolve => setTimeout(resolve, 500 * (retryCount + 1)));
+              return get().syncSetQuantityInDatabase(item, quantity);
+            }
           }
         } catch (error) {
           console.error('Error syncing quantity to database:', error);
+          
+          // Retry on network errors
+          if (retryCount < 2) {
+            console.log(`Retrying cart sync after error (attempt ${retryCount + 1})...`);
+            // Wait a bit before retrying
+            await new Promise(resolve => setTimeout(resolve, 500 * (retryCount + 1)));
+            return get().syncSetQuantityInDatabase(item, quantity);
+          }
         }
       },
       syncRemoveFromDatabase: async (productId: number, color: string, size: string) => {
@@ -228,12 +256,14 @@ export const useCartStore = create<CartStore>()(
           // We need to find the database item ID first
           const response = await fetch('/api/user/cart');
           if (response.ok) {
-            const dbItems = await response.json();
+            const data = await response.json();
+            const dbItems = data.items || [];
             const itemToDelete = dbItems.find((item: any) => 
               item.productId === productId && item.color === color && item.size === size
             );
             
             if (itemToDelete) {
+              // Using query parameter as implemented in the API
               await fetch(`/api/user/cart?id=${itemToDelete.id}`, {
                 method: 'DELETE',
               });

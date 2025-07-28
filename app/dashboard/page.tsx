@@ -35,7 +35,7 @@ export default function Dashboard() {
     
     // Redirect if not authenticated
     if (mounted && status === 'unauthenticated') {
-      router.push('/auth/signin');
+      router.push('/signin');
     }
   }, [mounted, status, router]);
 

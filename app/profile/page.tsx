@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
+import Link from 'next/link'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,11 +14,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import type { Address } from '@/hooks/use-addresses'
 import { 
   User, 
   MapPin, 
   Package, 
-  Activity, 
   Edit2, 
   Plus, 
   ShoppingBag, 
@@ -25,9 +27,11 @@ import {
   Phone,
   Mail,
   Save,
-  Loader2
+  Loader2,
+  Trash2
 } from 'lucide-react'
 import Header from '@/components/header'
+import AddressBook from '@/components/address-book'
 
 // Define interfaces
 interface UserData {
@@ -45,16 +49,7 @@ interface UserData {
   orders: Order[]
 }
 
-interface Address {
-  id: string
-  name: string
-  street: string
-  city: string
-  state: string
-  zipCode: string
-  country: string
-  isDefault: boolean
-}
+// We'll use the Address type from the hook via component props
 
 interface CartItem {
   id: string
@@ -81,11 +76,19 @@ interface Order {
   createdAt: string
 }
 
-// Mock user for authentication bypass
-const MOCK_USER = { 
-  email: "test@example.com",
-  name: "Test User",
-  image: "https://via.placeholder.com/150" 
+// Default empty user state
+const emptyUser: UserData = {
+  id: '',
+  name: '',
+  email: '',
+  phone: null,
+  image: null,
+  addresses: [],
+  cart: [],
+  cartCount: 0,
+  wishlist: [],
+  wishlistCount: 0,
+  orders: []
 }
 
 export default function ProfilePage() {
@@ -111,12 +114,23 @@ export default function ProfilePage() {
   }, [session?.user?.email])
 
   const fetchUserData = async () => {
+    // Don't fetch if not authenticated
+    if (status === 'unauthenticated') {
+      setLoading(false)
+      return
+    }
+    
+    // Don't fetch until auth is complete
+    if (status === 'loading') {
+      return
+    }
+    
     try {
       setLoading(true)
       
       // Check for cached data first
-      const cacheKey = `userData_${session?.user?.email || MOCK_USER.email}`
-      const cached = sessionStorage.getItem(cacheKey)
+      const cacheKey = `userData_${session?.user?.email}`
+      const cached = typeof window !== 'undefined' ? sessionStorage.getItem(cacheKey) : null
       
       if (cached) {
         const cachedData = JSON.parse(cached)
@@ -132,7 +146,7 @@ export default function ProfilePage() {
         }
       }
       
-      const response = await fetch('/api/user', {
+      const response = await fetch('/api/user/profile', {
         cache: 'no-store'
       })
       
@@ -159,24 +173,37 @@ export default function ProfilePage() {
 
   const updateProfile = async (e: React.FormEvent) => {
     e.preventDefault()
-    setUpdating(true)
-
+    
+    if (!session) {
+      return
+    }
+    
     try {
-      const response = await fetch('/api/user', {
+      setUpdating(true)
+      
+      const response = await fetch('/api/user/profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(formData)
       })
-
+      
       if (response.ok) {
         const updatedUser = await response.json()
-        setUserData(prev => prev ? { ...prev, ...updatedUser } : null)
+        setUserData(prev => prev ? {...prev, ...updatedUser} : updatedUser)
         
-        // Clear cache after update
-        const cacheKey = `userData_${session?.user?.email || MOCK_USER.email}`
-        sessionStorage.removeItem(cacheKey)
+        // Update cache
+        const cacheKey = `userData_${session?.user?.email}`
+        const cached = typeof window !== 'undefined' ? sessionStorage.getItem(cacheKey) : null
+        
+        if (cached) {
+          const cachedData = JSON.parse(cached)
+          sessionStorage.setItem(cacheKey, JSON.stringify({
+            data: {...cachedData.data, ...updatedUser},
+            timestamp: Date.now()
+          }))
+        }
         
         alert('Profile updated successfully!')
       }
@@ -271,28 +298,248 @@ export default function ProfilePage() {
     )
   }
 
-  // Use data from session or mock user
-  const displayUser = session?.user || MOCK_USER;
-
   return (
     <>
       <Header />
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 pt-20">
         <div className="container mx-auto p-6 max-w-6xl">
-          {/* Profile content here - omitted for brevity */}
-          <h1 className="text-3xl font-bold">Profile</h1>
-          <p>Welcome, {displayUser.name}</p>
-          <p>Email: {displayUser.email}</p>
-          
-          {/* Display data from API */}
-          {userData && (
-            <div className="mt-4">
-              <h2 className="text-xl font-semibold">Your Data:</h2>
-              <pre className="bg-slate-100 dark:bg-slate-800 p-4 rounded-md mt-2 overflow-auto">
-                {JSON.stringify(userData, null, 2)}
-              </pre>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+              <div className="flex items-center gap-4">
+                <Avatar className="h-20 w-20 border-4 border-background">
+                  <AvatarImage src={session?.user?.image || undefined} alt={session?.user?.name || 'User'} />
+                  <AvatarFallback className="text-2xl">
+                    {session?.user?.name?.charAt(0) || '?'}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <h1 className="text-3xl font-bold mb-1">My Account</h1>
+                  <p className="text-muted-foreground">{session?.user?.email}</p>
+                </div>
+              </div>
             </div>
-          )}
+            
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
+              <TabsList className="grid grid-cols-4">
+                <TabsTrigger value="profile">
+                  <User size={18} className="mr-2" />
+                  <span className="hidden sm:inline">Profile</span>
+                </TabsTrigger>
+                <TabsTrigger value="addresses">
+                  <MapPin size={18} className="mr-2" />
+                  <span className="hidden sm:inline">Addresses</span>
+                </TabsTrigger>
+                <TabsTrigger value="orders">
+                  <Package size={18} className="mr-2" />
+                  <span className="hidden sm:inline">Orders</span>
+                </TabsTrigger>
+                <TabsTrigger value="wishlist">
+                  <Heart size={18} className="mr-2" />
+                  <span className="hidden sm:inline">Wishlist</span>
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="profile" className="mt-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Profile Information</CardTitle>
+                    <CardDescription>Update your personal details here.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={updateProfile} className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="name">Username</Label>
+                          <Input
+                            id="name"
+                            placeholder="Your username"
+                            value={formData.name}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="phone">Phone</Label>
+                          <Input
+                            id="phone"
+                            placeholder="Your phone number"
+                            value={formData.phone || ''}
+                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="email">Email</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            value={userData?.email || ''}
+                            disabled
+                            readOnly
+                          />
+                          <p className="text-sm text-muted-foreground">Email cannot be changed</p>
+                        </div>
+                      </div>
+                      <div className="flex justify-end">
+                        <Button type="submit" disabled={updating}>
+                          {updating ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="mr-2 h-4 w-4" />
+                              Save Changes
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </form>
+                  </CardContent>
+                </Card>
+                
+                <Card className="mt-6">
+                  <CardHeader>
+                    <CardTitle>Account Information</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Calendar className="h-5 w-5 text-muted-foreground" />
+                          <span>Member Since</span>
+                        </div>
+                        <span>{userData?.createdAt ? new Date(userData.createdAt).toLocaleDateString() : '-'}</span>
+                      </div>
+                      <Separator />
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <ShoppingBag className="h-5 w-5 text-muted-foreground" />
+                          <span>Orders</span>
+                        </div>
+                        <Badge variant="outline">{userData?.orders?.length || 0}</Badge>
+                      </div>
+                      <Separator />
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Heart className="h-5 w-5 text-muted-foreground" />
+                          <span>Wishlist Items</span>
+                        </div>
+                        <Badge variant="outline">{userData?.wishlistCount || 0}</Badge>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              
+              <TabsContent value="addresses" className="mt-6">
+                {userData && (
+                  <AddressBook 
+                    addresses={userData.addresses || []} 
+                    onAddressChange={fetchUserData}
+                  />
+                )}
+              </TabsContent>
+              
+              <TabsContent value="orders" className="mt-6">
+                {userData?.orders && userData.orders.length > 0 ? (
+                  <div className="space-y-4">
+                    {userData.orders.map((order) => (
+                      <Card key={order.id}>
+                        <CardContent className="p-6">
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                              <h3 className="font-medium">Order #{order.orderNumber}</h3>
+                              <p className="text-sm text-muted-foreground">
+                                Placed on {new Date(order.createdAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <div>
+                                <p className="text-sm font-medium">Status</p>
+                                <Badge variant={
+                                  order.status === 'completed' ? 'default' :
+                                  order.status === 'processing' ? 'secondary' :
+                                  order.status === 'cancelled' ? 'destructive' : 'outline'
+                                }>
+                                  {order.status}
+                                </Badge>
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium">Total</p>
+                                <p>${order.total.toFixed(2)}</p>
+                              </div>
+                              <Button variant="outline" size="sm">
+                                View Details
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center p-8 border border-dashed rounded-md">
+                    <Package className="mx-auto h-12 w-12 text-gray-300 mb-4" />
+                    <h3 className="font-medium text-lg mb-2">No Orders Yet</h3>
+                    <p className="text-gray-500 mb-4">
+                      You haven't placed any orders yet.
+                    </p>
+                    <Button asChild>
+                      <Link href="/shop">Shop Now</Link>
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
+              
+              <TabsContent value="wishlist" className="mt-6">
+                {userData?.wishlist && userData.wishlist.length > 0 ? (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {userData.wishlist.map((item) => (
+                      <Card key={item.id}>
+                        <CardContent className="p-4">
+                          <div className="relative h-48 w-full mb-4">
+                            <Image
+                              src={item.image || '/placeholder.png'}
+                              alt={item.name}
+                              fill
+                              className="object-cover rounded-md"
+                            />
+                            <Button 
+                              size="icon" 
+                              variant="destructive" 
+                              className="absolute top-2 right-2 h-8 w-8 rounded-full opacity-90"
+                            >
+                              <Trash2 size={16} />
+                            </Button>
+                          </div>
+                          <h3 className="font-medium line-clamp-1">{item.name}</h3>
+                          <p className="font-medium text-lg mt-1">${item.price.toFixed(2)}</p>
+                          <Button className="w-full mt-3" size="sm">
+                            Add to Cart
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center p-8 border border-dashed rounded-md">
+                    <Heart className="mx-auto h-12 w-12 text-gray-300 mb-4" />
+                    <h3 className="font-medium text-lg mb-2">Your Wishlist is Empty</h3>
+                    <p className="text-gray-500 mb-4">
+                      Save items you love to your wishlist.
+                    </p>
+                    <Button asChild>
+                      <Link href="/shop">Continue Shopping</Link>
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </motion.div>
         </div>
       </div>
     </>

@@ -1,0 +1,167 @@
+"use client"
+
+import { useState, useCallback } from 'react'
+import { useSession } from 'next-auth/react'
+import { toast } from '@/components/ui/use-toast'
+
+export interface Product {
+  id: string
+  name: string
+  description?: string
+  price: number
+  imageUrl?: string
+}
+
+export interface WishlistItem {
+  id: string
+  productId: string
+  userId: string
+  product: Product
+  createdAt: string
+  updatedAt: string
+}
+
+export function useWishlist() {
+  const [loading, setLoading] = useState(false)
+  const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([])
+  const { data: session } = useSession()
+
+  const fetchWishlist = useCallback(async () => {
+    if (!session) return []
+    
+    try {
+      setLoading(true)
+      const response = await fetch('/api/user/wishlist')
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch wishlist')
+      }
+      
+      const data = await response.json()
+      setWishlistItems(data)
+      return data
+    } catch (error) {
+      console.error('Error fetching wishlist:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load your wishlist",
+        variant: "destructive"
+      })
+      return []
+    } finally {
+      setLoading(false)
+    }
+  }, [session])
+
+  const addToWishlist = useCallback(async (productId: string) => {
+    if (!session) {
+      toast({
+        title: "Not signed in",
+        description: "Please sign in to add items to your wishlist",
+        variant: "destructive"
+      })
+      return null
+    }
+    
+    try {
+      setLoading(true)
+      
+      const response = await fetch('/api/user/wishlist', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ productId })
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        
+        if (response.status === 409) {
+          toast({
+            title: "Already in wishlist",
+            description: "This item is already in your wishlist"
+          })
+          return null
+        }
+        
+        toast({
+          title: "Error",
+          description: errorData.error || "Failed to add item to wishlist",
+          variant: "destructive"
+        })
+        
+        return null
+      }
+      
+      const addedItem = await response.json()
+      
+      setWishlistItems(prev => [...prev, addedItem])
+      
+      toast({
+        title: "Added to wishlist",
+        description: `${addedItem.product.name} added to your wishlist`
+      })
+      
+      return addedItem
+    } catch (error) {
+      console.error('Error adding to wishlist:', error)
+      toast({
+        title: "Error",
+        description: "Failed to add item to wishlist",
+        variant: "destructive"
+      })
+      return null
+    } finally {
+      setLoading(false)
+    }
+  }, [session])
+
+  const removeFromWishlist = useCallback(async (wishlistItemId: string) => {
+    if (!session) return false
+    
+    try {
+      setLoading(true)
+      
+      const response = await fetch(`/api/user/wishlist/${wishlistItemId}`, {
+        method: 'DELETE'
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to remove item from wishlist')
+      }
+      
+      setWishlistItems(prev => prev.filter(item => item.id !== wishlistItemId))
+      
+      toast({
+        title: "Removed from wishlist",
+        description: "Item removed from your wishlist"
+      })
+      
+      return true
+    } catch (error) {
+      console.error('Error removing from wishlist:', error)
+      toast({
+        title: "Error",
+        description: "Failed to remove item from wishlist",
+        variant: "destructive"
+      })
+      return false
+    } finally {
+      setLoading(false)
+    }
+  }, [session])
+
+  const isInWishlist = useCallback((productId: string) => {
+    return wishlistItems.some(item => item.productId === productId)
+  }, [wishlistItems])
+
+  return {
+    wishlist: wishlistItems,
+    loading,
+    fetchWishlist,
+    addToWishlist,
+    removeFromWishlist,
+    isInWishlist
+  }
+}

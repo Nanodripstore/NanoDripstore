@@ -203,7 +203,38 @@ export default function ProductShowcase() {
                     {/* Add to Cart Button */}
                     <Button
                       className="w-full group/btn text-xs sm:text-sm lg:text-base h-8 sm:h-9 lg:h-10 bg-primary/90 hover:bg-primary hover:scale-[1.02] transition-all duration-200 mt-auto"
-                      onClick={() => handleAddToCart(product)}
+                      onClick={(e) => {
+                        // Provide immediate visual feedback on click
+                        const button = e.currentTarget;
+                        
+                        // Check if button is already in "adding" state
+                        if (button.getAttribute('data-adding') === 'true') {
+                          return;
+                        }
+                        
+                        // Store original content and mark button as adding
+                        const originalContent = `<svg class="w-3 h-3 sm:w-4 sm:h-4 mr-2 group-hover/btn:rotate-12 transition-transform duration-300" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>Add to Cart`;
+                        button.setAttribute('data-adding', 'true');
+                        
+                        // Update button appearance
+                        button.innerHTML = `
+                          <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <span class="ml-2">Added!</span>
+                        `;
+                        
+                        // Call actual handler
+                        handleAddToCart(product);
+                        
+                        // Restore button after animation
+                        setTimeout(() => {
+                          button.innerHTML = originalContent;
+                          button.setAttribute('data-adding', 'false');
+                        }, 1000);
+                      }}
+                      data-adding="false"
                     >
                       <ShoppingCart className="w-3 h-3 sm:w-4 sm:h-4 mr-2 group-hover/btn:rotate-12 transition-transform duration-300" />
                       Add to Cart

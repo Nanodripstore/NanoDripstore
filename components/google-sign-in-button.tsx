@@ -12,7 +12,7 @@ const GoogleSignInButton: FC<GoogleSignInButtonProps> = ({ children }) => {
     try {
       setIsLoading(true);
       await signIn('google', {
-        callbackUrl: '/admin',
+        callbackUrl: '/',
         redirect: true,
       });
     } catch (error) {

@@ -171,20 +171,14 @@ export default function Header() {
                 </>
               ) : (
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    onClick={() => signIn('google')}
-                    className={`text-sm ${getTextColor()} ${isHomepage && !scrolled ? 'text-white hover:text-white hover:bg-white/10' : ''}`}
-                  >
-                    Sign In
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={() => signIn('google')}
-                    className={`text-sm ${isHomepage && !scrolled ? ' text-white hover:text-white hover:bg-white/10' : ''}`}
-                  >
-                    Sign Up
-                  </Button>
+                  <Link href="/sign-in">
+                    <Button
+                      variant="ghost"
+                      className={`text-sm ${getTextColor()} ${isHomepage && !scrolled ? 'text-white hover:text-white hover:bg-white/10' : ''}`}
+                    >
+                      Sign In
+                    </Button>
+                  </Link>
                 </div>
               )}
             </div>

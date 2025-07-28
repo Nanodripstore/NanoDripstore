@@ -10,13 +10,26 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from "sonner";
+import { useSession, signIn } from "next-auth/react";
 
 export default function ShopProducts() {
   const router = useRouter();
   const { addItem } = useCartStore();
   const [selectedColor, setSelectedColor] = useState<string>('');
+  const { data: session } = useSession();
 
   const handleAddToCart = (product: typeof products[0]) => {
+    if (!session?.user) {
+      toast.error('Please sign in to add items to cart', {
+        description: 'You need to be logged in to use the shopping cart',
+        action: {
+          label: 'Sign In',
+          onClick: () => router.push('/sign-in'),
+        },
+      });
+      return;
+    }
+    
     const defaultColor = product.colors[0]?.name || 'Default';
     const defaultSize = product.sizes[2] || 'M'; // Default to M size
     
@@ -40,24 +53,25 @@ export default function ShopProducts() {
   };
 
   return (
-    <section className="py-20 px-4">
-      <div className="container mx-auto">
-        {/* Section Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-16"
-        >
-          <Badge variant="outline" className="mb-4">Full Collection</Badge>
-          <h2 className="text-4xl md:text-5xl font-bold mb-4">
-            Complete <span className="text-primary">Collection</span>
-          </h2>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Explore our complete range of premium hoodies and t-shirts. 
-            Find your perfect style from our carefully curated collection.
-          </p>
-        </motion.div>
+    <>
+      <section className="py-20 px-4">
+        <div className="container mx-auto">
+          {/* Section Header */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-16"
+          >
+            <Badge variant="outline" className="mb-4">Full Collection</Badge>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+              Complete <span className="text-primary">Collection</span>
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Explore our complete range of premium hoodies and t-shirts. 
+              Find your perfect style from our carefully curated collection.
+            </p>
+          </motion.div>
 
         {/* Product Grid - Show ALL products */}
         <motion.div 
@@ -213,5 +227,6 @@ export default function ShopProducts() {
         </motion.div>
       </div>
     </section>
+    </>
   );
 }

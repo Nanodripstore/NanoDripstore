@@ -25,7 +25,7 @@ export default function ProductShowcase() {
         description: 'You need to be logged in to use the shopping cart',
         action: {
           label: 'Sign In',
-          onClick: () => signIn('google'),
+          onClick: () => router.push('/sign-in'),
         },
       });
       return;

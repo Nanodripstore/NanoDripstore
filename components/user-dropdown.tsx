@@ -172,7 +172,7 @@ export default function UserDropdown({ isHomepage, scrolled, getTextColor }: Use
                   <Button
                     variant="ghost"
                     onClick={() => {
-                      signOut()
+                      signOut({callbackUrl: '/'})
                       closeDropdown()
                     }}
                     className="w-full justify-start h-auto p-4 text-left text-red-600 hover:text-red-700 hover:bg-red-50"

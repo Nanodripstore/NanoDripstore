@@ -102,6 +102,19 @@ export default function ProfilePage() {
     phone: ''
   })
 
+  const handleAddressChange = async () => {
+    // Clear cache and force refresh when addresses change
+    clearUserDataCache()
+    await fetchUserData(true)
+  }
+
+  const clearUserDataCache = () => {
+    if (typeof window !== 'undefined' && session?.user?.email) {
+      const cacheKey = `userData_${session.user.email}`
+      sessionStorage.removeItem(cacheKey)
+    }
+  }
+
   useEffect(() => {
     // Add timeout to prevent loading flash for fast responses
     const loadingTimeout = setTimeout(() => setLoading(true), 100)
@@ -113,7 +126,7 @@ export default function ProfilePage() {
     return () => clearTimeout(loadingTimeout)
   }, [session?.user?.email])
 
-  const fetchUserData = async () => {
+  const fetchUserData = async (forceRefresh = false) => {
     // Don't fetch if not authenticated
     if (status === 'unauthenticated') {
       setLoading(false)
@@ -128,21 +141,29 @@ export default function ProfilePage() {
     try {
       setLoading(true)
       
-      // Check for cached data first
+      // Check for cached data first (unless force refresh is requested)
       const cacheKey = `userData_${session?.user?.email}`
-      const cached = typeof window !== 'undefined' ? sessionStorage.getItem(cacheKey) : null
       
-      if (cached) {
-        const cachedData = JSON.parse(cached)
-        // Use cached data if it's less than 5 minutes old
-        if (Date.now() - cachedData.timestamp < 5 * 60 * 1000) {
-          setUserData(cachedData.data)
-          setFormData({
-            name: cachedData.data.name || '',
-            phone: cachedData.data.phone || ''
-          })
-          setLoading(false)
-          return
+      if (!forceRefresh) {
+        const cached = typeof window !== 'undefined' ? sessionStorage.getItem(cacheKey) : null
+        
+        if (cached) {
+          const cachedData = JSON.parse(cached)
+          // Use cached data if it's less than 5 minutes old
+          if (Date.now() - cachedData.timestamp < 5 * 60 * 1000) {
+            setUserData(cachedData.data)
+            setFormData({
+              name: cachedData.data.name || '',
+              phone: cachedData.data.phone || ''
+            })
+            setLoading(false)
+            return
+          }
+        }
+      } else {
+        // Clear cache if force refresh is requested
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem(cacheKey)
         }
       }
       
@@ -191,19 +212,10 @@ export default function ProfilePage() {
       
       if (response.ok) {
         const updatedUser = await response.json()
-        setUserData(prev => prev ? {...prev, ...updatedUser} : updatedUser)
         
-        // Update cache
-        const cacheKey = `userData_${session?.user?.email}`
-        const cached = typeof window !== 'undefined' ? sessionStorage.getItem(cacheKey) : null
-        
-        if (cached) {
-          const cachedData = JSON.parse(cached)
-          sessionStorage.setItem(cacheKey, JSON.stringify({
-            data: {...cachedData.data, ...updatedUser},
-            timestamp: Date.now()
-          }))
-        }
+        // Clear cache and refetch to ensure consistency
+        clearUserDataCache()
+        await fetchUserData(true)
         
         alert('Profile updated successfully!')
       }
@@ -439,7 +451,7 @@ export default function ProfilePage() {
                 {userData && (
                   <AddressBook 
                     addresses={userData.addresses || []} 
-                    onAddressChange={fetchUserData}
+                    onAddressChange={handleAddressChange}
                   />
                 )}
               </TabsContent>

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Edit2, Trash2, Plus, Check } from 'lucide-react';
+import { MapPin, Edit2, Trash2, Plus, Check, Star, StarOff } from 'lucide-react';
 import { useAddresses, Address } from '@/hooks/use-addresses';
 
 interface AddressBookProps {
@@ -17,6 +17,7 @@ interface AddressBookProps {
 export default function AddressBook({ addresses, onAddressChange }: AddressBookProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [settingDefaultId, setSettingDefaultId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     street: '',
@@ -68,19 +69,34 @@ export default function AddressBook({ addresses, onAddressChange }: AddressBookP
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this address?')) {
-      const result = await deleteAddress(id);
-      if (result) {
-        onAddressChange();
-      }
+    const addressToDelete = addresses.find(addr => addr.id === id);
+    
+    if (addressToDelete?.isDefault && addresses.length > 1) {
+      const confirmed = window.confirm(
+        'This is your default address. Deleting it will remove your default delivery address. Are you sure you want to continue?'
+      );
+      if (!confirmed) return;
+    } else if (addressToDelete?.isDefault === false) {
+      const confirmed = window.confirm('Are you sure you want to delete this address?');
+      if (!confirmed) return;
+    } else {
+      const confirmed = window.confirm('Are you sure you want to delete this address?');
+      if (!confirmed) return;
+    }
+    
+    const result = await deleteAddress(id);
+    if (result) {
+      onAddressChange();
     }
   };
 
   const handleSetDefault = async (id: string) => {
+    setSettingDefaultId(id);
     const result = await setDefaultAddress(id);
     if (result) {
       onAddressChange();
     }
+    setSettingDefaultId(null);
   };
 
   const resetForm = () => {
@@ -194,18 +210,23 @@ export default function AddressBook({ addresses, onAddressChange }: AddressBookP
                 </div>
               </div>
               
-              <div className="flex items-center space-x-2 pt-2">
+              <div className="flex items-start space-x-3 pt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                 <input
                   type="checkbox"
                   id="isDefault"
                   name="isDefault"
                   checked={formData.isDefault}
                   onChange={handleInputChange}
-                  className="h-4 w-4 rounded border-gray-300"
+                  className="h-4 w-4 mt-0.5 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
                 />
-                <Label htmlFor="isDefault" className="text-sm font-normal">
-                  Set as default address
-                </Label>
+                <div className="flex-1">
+                  <Label htmlFor="isDefault" className="text-sm font-medium text-blue-900 cursor-pointer">
+                    Set as default address
+                  </Label>
+                  <p className="text-xs text-blue-700 mt-1">
+                    Your default address will be automatically selected during checkout
+                  </p>
+                </div>
               </div>
               
               <div className="flex justify-end gap-2">
@@ -235,41 +256,57 @@ export default function AddressBook({ addresses, onAddressChange }: AddressBookP
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
-          {addresses.map(address => (
-            <Card key={address.id}>
+          {addresses
+            .sort((a, b) => {
+              // Default address always comes first
+              if (a.isDefault && !b.isDefault) return -1;
+              if (!a.isDefault && b.isDefault) return 1;
+              // For non-default addresses, maintain original order
+              return 0;
+            })
+            .map(address => (
+            <Card key={address.id} className={address.isDefault ? "ring-2 ring-blue-200 bg-blue-50/30" : ""}>
               <CardContent className="p-4">
                 <div className="flex justify-between items-start">
-                  <div className="font-medium">
-                    {address.name} 
+                  <div className="flex items-center gap-2">
+                    <div className="font-medium">{address.name}</div>
                     {address.isDefault && (
-                      <Badge variant="outline" className="ml-2">
+                      <Badge variant="default" className="bg-blue-600 hover:bg-blue-700">
+                        <Star size={12} className="mr-1" />
                         Default
                       </Badge>
                     )}
                   </div>
                   <div className="flex gap-1">
-                    {!address.isDefault && (
-                      <Button 
-                        size="icon" 
-                        variant="ghost" 
-                        onClick={() => handleSetDefault(address.id)}
-                        title="Set as default"
-                      >
-                        <Check size={16} />
-                      </Button>
-                    )}
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      onClick={() => handleSetDefault(address.id)}
+                      title={address.isDefault ? "Already default address" : "Set as default address"}
+                      className={address.isDefault ? "text-blue-600" : "hover:text-blue-600"}
+                      disabled={address.isDefault || settingDefaultId === address.id}
+                    >
+                      {settingDefaultId === address.id ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                      ) : address.isDefault ? (
+                        <Star size={16} className="fill-current" />
+                      ) : (
+                        <StarOff size={16} />
+                      )}
+                    </Button>
                     <Button 
                       size="icon" 
                       variant="ghost" 
                       onClick={() => handleEdit(address)}
                       title="Edit address"
+                      className="hover:text-blue-600"
                     >
                       <Edit2 size={16} />
                     </Button>
                     <Button 
                       size="icon" 
                       variant="ghost" 
-                      className="text-destructive" 
+                      className="text-destructive hover:text-red-700" 
                       onClick={() => handleDelete(address.id)}
                       title="Delete address"
                     >
@@ -282,6 +319,12 @@ export default function AddressBook({ addresses, onAddressChange }: AddressBookP
                   <p>{address.city}, {address.state} {address.zipCode}</p>
                   <p>{address.country}</p>
                 </div>
+                {address.isDefault && (
+                  <div className="mt-3 flex items-center gap-1 text-xs text-blue-600">
+                    <Check size={12} />
+                    This address will be used by default for deliveries
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}

@@ -36,6 +36,13 @@ export async function POST(request: Request) {
       });
     }
 
+    // Check if this is the user's first address - if so, make it default
+    const existingAddressCount = await db.addresses.count({
+      where: { userId: user.id }
+    });
+    
+    const shouldBeDefault = isDefault || existingAddressCount === 0;
+
     const address = await db.addresses.create({
       data: {
         id: randomUUID(),
@@ -46,7 +53,7 @@ export async function POST(request: Request) {
         state,
         zipCode,
         country,
-        isDefault: isDefault || false,
+        isDefault: shouldBeDefault,
         updatedAt: new Date()
       }
     });
@@ -159,9 +166,26 @@ export async function DELETE(request: Request) {
       return Response.json({ error: 'Address not found or does not belong to user' }, { status: 404 });
     }
 
+    const wasDefault = existingAddress.isDefault;
+
     await db.addresses.delete({
       where: { id: addressId }
     });
+
+    // If we deleted the default address, set another address as default
+    if (wasDefault) {
+      const remainingAddresses = await db.addresses.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: 'asc' }
+      });
+
+      if (remainingAddresses.length > 0) {
+        await db.addresses.update({
+          where: { id: remainingAddresses[0].id },
+          data: { isDefault: true, updatedAt: new Date() }
+        });
+      }
+    }
 
     return Response.json({ success: true });
   } catch (error) {

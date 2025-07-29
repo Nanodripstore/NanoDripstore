@@ -8,7 +8,7 @@ import { usePathname } from 'next/navigation';
 import { useSession, signIn } from 'next-auth/react';
 import { useCartStore } from '@/lib/cart-store';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import CartSidebar from './cart-sidebar';
 import UserDropdown from './user-dropdown';
@@ -82,16 +82,66 @@ export default function Header() {
     >
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          {/* Logo */}
-          <motion.div
-            className={`text-2xl font-bold ${getTextColor()}`}
-            whileHover={{ scale: 1.05 }}
-            transition={{ type: "spring", stiffness: 400 }}
-          >
-            <Link href="/">
-              NanoDrip
-            </Link>
-          </motion.div>
+          {/* Mobile Menu and Logo Container */}
+          <div className="flex items-center gap-3">
+            {/* Mobile Menu - Only visible on mobile */}
+            <Sheet>
+              <SheetTrigger asChild className="md:hidden">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={`h-8 w-8 ${isHomepage && !scrolled ? 'text-white hover:text-white hover:bg-white/10' : ''}`}
+                >
+                  <Menu className="h-4 w-4" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left">
+                <SheetTitle>
+                  <span className="absolute -m-px h-px w-px overflow-hidden whitespace-nowrap border-0 p-0 clip-[rect(0,0,0,0)]">Navigation Menu</span>
+                </SheetTitle>
+                <div className="flex flex-col space-y-6 mt-8">
+                  {navItems.map((item, index) => (
+                    <motion.a
+                      key={item.name}
+                      href={item.href}
+                      className="text-base sm:text-lg font-medium text-foreground/80 hover:text-foreground transition-colors"
+                      initial={{ opacity: 0, x: -50 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                    >
+                      {item.name}
+                    </motion.a>
+                  ))}
+                  
+                  {/* Mobile User Menu */}
+                  {session?.user && (
+                    <div className="border-t pt-6 mt-6 space-y-4">
+                      <motion.a
+                        href="/profile"
+                        className="text-base font-medium text-foreground/80 hover:text-foreground transition-colors"
+                        initial={{ opacity: 0, x: -50 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: navItems.length * 0.1 }}
+                      >
+                        Profile
+                      </motion.a>
+                    </div>
+                  )}
+                </div>
+              </SheetContent>
+            </Sheet>
+
+            {/* Logo */}
+            <motion.div
+              className={`text-2xl font-bold ${getTextColor()}`}
+              whileHover={{ scale: 1.05 }}
+              transition={{ type: "spring", stiffness: 400 }}
+            >
+              <Link href="/">
+                NanoDrip
+              </Link>
+            </motion.div>
+          </div>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
@@ -182,59 +232,6 @@ export default function Header() {
                 </div>
               )}
             </div>
-
-            {/* Mobile Menu */}
-            <Sheet>
-              <SheetTrigger asChild className="md:hidden">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={`h-8 w-8 ${isHomepage && !scrolled ? 'text-white hover:text-white hover:bg-white/10' : ''}`}
-                >
-                  <Menu className="h-4 w-4" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent>
-                <div className="flex flex-col space-y-6 mt-8">
-                  {navItems.map((item, index) => (
-                    <motion.a
-                      key={item.name}
-                      href={item.href}
-                      className="text-base sm:text-lg font-medium text-foreground/80 hover:text-foreground transition-colors"
-                      initial={{ opacity: 0, x: 50 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                    >
-                      {item.name}
-                    </motion.a>
-                  ))}
-                  
-                  {/* Mobile User Menu */}
-                  {session?.user && (
-                    <div className="border-t pt-6 mt-6 space-y-4">
-                      <motion.a
-                        href="/profile"
-                        className="text-base font-medium text-foreground/80 hover:text-foreground transition-colors"
-                        initial={{ opacity: 0, x: 50 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: navItems.length * 0.1 }}
-                      >
-                        Profile
-                      </motion.a>
-                      <motion.a
-                        href="/cart"
-                        className="text-base font-medium text-foreground/80 hover:text-foreground transition-colors"
-                        initial={{ opacity: 0, x: 50 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: (navItems.length + 1) * 0.1 }}
-                      >
-                        Cart ({getTotalItems()})
-                      </motion.a>
-                    </div>
-                  )}
-                </div>
-              </SheetContent>
-            </Sheet>
           </div>
         </div>
       </div>

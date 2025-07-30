@@ -46,25 +46,42 @@ export async function POST(request: Request) {
     
     // Send password reset email
     try {
+      console.log('📧 Attempting to send password reset email...');
       const emailResult = await sendPasswordResetEmail(email, resetUrl);
       
-      if (emailResult.development) {
-        // Development mode - show token info
-        return Response.json({ 
-          message: 'If an account with that email exists, we have sent a password reset link.',
-          development: true,
-          token: resetToken,
-          resetUrl: resetUrl,
-          notice: 'Email service not configured. Check console for reset link.'
-        });
-      } else {
+      console.log('📬 Email result:', emailResult);
+      
+      if (emailResult.success) {
+        if (emailResult.messageId) {
+          console.log('✅ Email sent successfully with ID:', emailResult.messageId);
+        }
+        
         // Production mode - email sent successfully
         return Response.json({ 
           message: 'If an account with that email exists, we have sent a password reset link to your email address.'
         });
+      } else {
+        // Email failed
+        console.error('❌ Email sending failed:', emailResult.error);
+        
+        // In development, show more details
+        if (process.env.NODE_ENV === 'development') {
+          return Response.json({ 
+            message: 'If an account with that email exists, we have sent a password reset link.',
+            development: true,
+            token: resetToken,
+            resetUrl: resetUrl,
+            emailError: emailResult.error || 'Failed to send email - check console for reset link'
+          });
+        }
+        
+        // In production, act as if email was sent successfully (for security)
+        return Response.json({ 
+          message: 'If an account with that email exists, we have sent a password reset link.' 
+        });
       }
     } catch (emailError) {
-      console.error('Failed to send password reset email:', emailError);
+      console.error('❌ Unexpected error sending password reset email:', emailError);
       
       // Email failed, but don't reveal this to the user for security
       // In development, show more details
@@ -74,7 +91,7 @@ export async function POST(request: Request) {
           development: true,
           token: resetToken,
           resetUrl: resetUrl,
-          emailError: 'Failed to send email - check console for reset link'
+          emailError: 'Unexpected error - check console for reset link'
         });
       }
       

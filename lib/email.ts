@@ -1,304 +1,217 @@
-// Email service with multiple providers including Nodemailer
+// Production-ready email service with detailed logging
 import nodemailer from 'nodemailer';
-import { sendSimpleEmail } from './simple-email';
 
-// Option 1: Using Nodemailer with Gmail/SMTP (now that it's installed)
-export const sendPasswordResetNodemailer = async (email: string, resetUrl: string): Promise<{ success: boolean; messageId?: string }> => {
+interface EmailOptions {
+  to: string;
+  subject: string;
+  html: string;
+}
+
+export async function sendEmail({ to, subject, html }: EmailOptions): Promise<{ success: boolean; error?: string; messageId?: string }> {
+  console.log('🚀 Email Service Starting...');
+  console.log('📧 Target:', to);
+  console.log('📧 Subject:', subject);
+  console.log('🌍 Environment:', process.env.NODE_ENV);
+  
   try {
-    // Create transporter based on available environment variables
-    let transporter;
-
-    if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
-      // Gmail configuration
-      transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: process.env.GMAIL_USER,
-          pass: process.env.GMAIL_APP_PASSWORD, // Use App Password, not regular password
-        },
-      });
-    } else if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD) {
-      // Generic SMTP configuration
-      transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT || '587'),
-        secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASSWORD,
-        },
-      });
-    } else {
-      throw new Error('No SMTP configuration found');
-    }
-
-    // Send email
-    const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || process.env.GMAIL_USER || process.env.SMTP_USER,
-      to: email,
-      subject: 'Password Reset Request - NanoDrip Store',
-      html: generatePasswordResetHTML(resetUrl, email),
-    });
-
-    console.log('Password reset email sent via Nodemailer:', info.messageId);
-    return { success: true, messageId: info.messageId };
+    // Check environment variables
+    const hasGmail = !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
+    console.log('🔧 Gmail Config Check:');
+    console.log('  - GMAIL_USER:', process.env.GMAIL_USER ? '✅ SET' : '❌ MISSING');
+    console.log('  - GMAIL_APP_PASSWORD:', process.env.GMAIL_APP_PASSWORD ? '✅ SET' : '❌ MISSING');
+    console.log('  - EMAIL_FROM:', process.env.EMAIL_FROM || 'NOT SET');
     
-  } catch (error) {
-    console.error('Error sending email via Nodemailer:', error);
-    throw new Error('Failed to send password reset email via SMTP');
-  }
-};
-
-// Option 2: Using EmailJS (client-side service)
-export const sendPasswordResetEmailJS = async (email: string, resetUrl: string) => {
-  try {
-    // This would be used on the client side with EmailJS
-    const templateParams = {
-      to_email: email,
-      reset_url: resetUrl,
-      user_name: email.split('@')[0],
-      expiry_time: '1 hour'
+    if (!hasGmail) {
+      const missing = [];
+      if (!process.env.GMAIL_USER) missing.push('GMAIL_USER');
+      if (!process.env.GMAIL_APP_PASSWORD) missing.push('GMAIL_APP_PASSWORD');
+      
+      const errorMsg = `Missing environment variables: ${missing.join(', ')}`;
+      console.error('❌ Configuration Error:', errorMsg);
+      return { success: false, error: errorMsg };
+    }
+    
+    console.log('✅ Gmail credentials present, creating transporter...');
+    
+    // Create transporter with detailed config
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD,
+      },
+      debug: true,
+      logger: true,
+    });
+    
+    console.log('🔍 Verifying SMTP connection...');
+    
+    // Verify connection first
+    try {
+      await transporter.verify();
+      console.log('✅ SMTP connection verified successfully');
+    } catch (verifyError) {
+      console.error('❌ SMTP verification failed:', verifyError);
+      return { 
+        success: false, 
+        error: `SMTP verification failed: ${verifyError instanceof Error ? verifyError.message : 'Unknown error'}` 
+      };
+    }
+    
+    // Prepare email options
+    const mailOptions = {
+      from: `"NanoDrip Store" <${process.env.EMAIL_FROM || process.env.GMAIL_USER}>`,
+      to,
+      subject,
+      html,
     };
-
-    // EmailJS integration would go here
-    console.log('EmailJS template params:', templateParams);
     
-    return { success: true };
-  } catch (error) {
-    console.error('Error with EmailJS:', error);
-    throw new Error('Failed to send email via EmailJS');
-  }
-};
-
-// Option 3: Using Resend API (lightweight alternative)
-export const sendPasswordResetResend = async (email: string, resetUrl: string): Promise<{ success: boolean; messageId?: string }> => {
-  try {
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: process.env.EMAIL_FROM || 'noreply@nanodripstore.com',
-        to: [email],
-        subject: 'Password Reset Request - NanoDrip Store',
-        html: generatePasswordResetHTML(resetUrl, email),
-      }),
+    console.log('📤 Sending email with options:', {
+      from: mailOptions.from,
+      to: mailOptions.to,
+      subject: mailOptions.subject,
     });
-
-    if (!response.ok) {
-      throw new Error(`Resend API error: ${response.status}`);
-    }
-
-    const result = await response.json();
-    console.log('Password reset email sent via Resend:', result.id);
-    return { success: true, messageId: result.id };
     
-  } catch (error) {
-    console.error('Error sending email via Resend:', error);
-    throw new Error('Failed to send password reset email');
-  }
-};
-
-// Option 3: Using SendGrid API
-export const sendPasswordResetSendGrid = async (email: string, resetUrl: string): Promise<{ success: boolean }> => {
-  try {
-    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.SENDGRID_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        personalizations: [{
-          to: [{ email: email }],
-          subject: 'Password Reset Request - NanoDrip Store'
-        }],
-        from: {
-          email: process.env.EMAIL_FROM || 'noreply@nanodripstore.com',
-          name: 'NanoDrip Store'
-        },
-        content: [{
-          type: 'text/html',
-          value: generatePasswordResetHTML(resetUrl, email)
-        }]
-      }),
+    // Send email
+    const result = await transporter.sendMail(mailOptions);
+    
+    console.log('✅ Email sent successfully!');
+    console.log('📊 Send Result:', {
+      messageId: result.messageId,
+      response: result.response,
+      accepted: result.accepted,
+      rejected: result.rejected,
     });
-
-    if (!response.ok) {
-      throw new Error(`SendGrid API error: ${response.status}`);
-    }
-
-    console.log('Password reset email sent via SendGrid');
-    return { success: true };
+    
+    return { 
+      success: true, 
+      messageId: result.messageId 
+    };
     
   } catch (error) {
-    console.error('Error sending email via SendGrid:', error);
-    throw new Error('Failed to send password reset email');
+    console.error('❌ Email sending failed:', error);
+    
+    // Detailed error logging
+    if (error instanceof Error) {
+      console.error('Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      });
+      
+      // Specific Gmail error handling
+      if (error.message.includes('Invalid login')) {
+        return { 
+          success: false, 
+          error: 'Gmail authentication failed. Check GMAIL_APP_PASSWORD is correct and 2FA is enabled.' 
+        };
+      }
+      
+      if (error.message.includes('Less secure app')) {
+        return { 
+          success: false, 
+          error: 'Gmail requires App Password. Enable 2FA and generate an App Password.' 
+        };
+      }
+    }
+    
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown email error' 
+    };
   }
-};
+}
 
-// Generate HTML email template
-const generatePasswordResetHTML = (resetUrl: string, email: string) => {
-  return `
+export async function sendPasswordResetEmail(email: string, resetUrl: string): Promise<{ success: boolean; error?: string; messageId?: string }> {
+  console.log('🔄 Password reset email requested for:', email);
+  console.log('🔗 Reset URL:', resetUrl);
+  
+  const html = `
     <!DOCTYPE html>
     <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Password Reset</title>
-      <style>
-        body {
-          font-family: Arial, sans-serif;
-          line-height: 1.6;
-          color: #333;
-          max-width: 600px;
-          margin: 0 auto;
-          padding: 20px;
-        }
-        .container {
-          background-color: #f9f9f9;
-          padding: 30px;
-          border-radius: 10px;
-          border: 1px solid #ddd;
-        }
-        .header {
-          text-align: center;
-          margin-bottom: 30px;
-        }
-        .logo {
-          font-size: 24px;
-          font-weight: bold;
-          color: #2563eb;
-          margin-bottom: 10px;
-        }
-        .content {
-          background-color: white;
-          padding: 30px;
-          border-radius: 8px;
-          margin-bottom: 20px;
-        }
-        .button {
-          display: inline-block;
-          background-color: #2563eb;
-          color: white;
-          padding: 12px 30px;
-          text-decoration: none;
-          border-radius: 5px;
-          margin: 20px 0;
-          font-weight: bold;
-        }
-        .warning {
-          background-color: #fef3c7;
-          border: 1px solid #f59e0b;
-          padding: 15px;
-          border-radius: 5px;
-          margin: 20px 0;
-        }
-        .footer {
-          text-align: center;
-          font-size: 12px;
-          color: #666;
-          margin-top: 30px;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <div class="logo">NanoDrip Store</div>
-          <h1>Password Reset Request</h1>
-        </div>
-        
-        <div class="content">
-          <p>Hello,</p>
-          
-          <p>We received a request to reset your password for your NanoDrip Store account. If you made this request, click the button below to reset your password:</p>
-          
-          <div style="text-align: center;">
-            <a href="${resetUrl}" class="button">Reset My Password</a>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Reset Your Password - NanoDrip Store</title>
+      </head>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+          <!-- Header -->
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600;">NanoDrip Store</h1>
+            <p style="color: #e0e7ff; margin: 10px 0 0 0; font-size: 16px;">Password Reset Request</p>
           </div>
           
-          <p>Or copy and paste this link into your browser:</p>
-          <p style="word-break: break-all; background-color: #f3f4f6; padding: 10px; border-radius: 5px;">
-            ${resetUrl}
-          </p>
-          
-          <div class="warning">
-            <strong>⚠️ Important Security Information:</strong>
-            <ul>
-              <li>This link will expire in <strong>1 hour</strong> for your security</li>
-              <li>If you didn't request this password reset, please ignore this email</li>
-              <li>Never share this link with anyone</li>
-            </ul>
+          <!-- Content -->
+          <div style="padding: 40px 30px;">
+            <h2 style="color: #1f2937; margin: 0 0 20px 0; font-size: 24px;">Reset Your Password</h2>
+            
+            <p style="color: #4b5563; font-size: 16px; margin: 0 0 20px 0; line-height: 1.6;">
+              We received a request to reset your password for your NanoDrip Store account. If you didn't make this request, you can safely ignore this email.
+            </p>
+            
+            <p style="color: #4b5563; font-size: 16px; margin: 0 0 30px 0; line-height: 1.6;">
+              To reset your password, click the button below:
+            </p>
+            
+            <!-- Reset Button -->
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${resetUrl}" 
+                 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                        color: #ffffff; 
+                        padding: 16px 32px; 
+                        text-decoration: none; 
+                        border-radius: 8px; 
+                        font-weight: 600; 
+                        font-size: 16px; 
+                        display: inline-block;
+                        box-shadow: 0 4px 14px 0 rgba(102, 126, 234, 0.39);
+                        transition: all 0.3s ease;">
+                Reset My Password
+              </a>
+            </div>
+            
+            <!-- Alternative Link -->
+            <div style="margin: 30px 0; padding: 20px; background-color: #f9fafb; border-radius: 8px; border-left: 4px solid #667eea;">
+              <p style="color: #4b5563; font-size: 14px; margin: 0 0 10px 0; font-weight: 600;">
+                Button not working? Copy and paste this link:
+              </p>
+              <p style="color: #667eea; font-size: 14px; margin: 0; word-break: break-all;">
+                ${resetUrl}
+              </p>
+            </div>
+            
+            <!-- Security Notice -->
+            <div style="margin: 30px 0 0 0; padding: 20px; background-color: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b;">
+              <p style="color: #92400e; font-size: 14px; margin: 0; line-height: 1.5;">
+                <strong>Security Notice:</strong> This password reset link will expire in 1 hour for your security. If you didn't request this reset, please contact our support team.
+              </p>
+            </div>
           </div>
           
-          <p>If you're having trouble clicking the button, you can also visit our website and go to the "Forgot Password" page to request a new reset link.</p>
-          
-          <p>Best regards,<br>
-          The NanoDrip Store Team</p>
+          <!-- Footer -->
+          <div style="background-color: #f9fafb; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
+            <p style="color: #6b7280; font-size: 14px; margin: 0 0 10px 0;">
+              This email was sent by NanoDrip Store
+            </p>
+            <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+              Please do not reply to this email. This mailbox is not monitored.
+            </p>
+          </div>
         </div>
-        
-        <div class="footer">
-          <p>This email was sent from NanoDrip Store. If you have any questions, please contact our support team.</p>
-          <p>© ${new Date().getFullYear()} NanoDrip Store. All rights reserved.</p>
-        </div>
-      </div>
-    </body>
+      </body>
     </html>
   `;
-};
 
-// Main email sending function - chooses the best available service
-export const sendPasswordResetEmail = async (email: string, resetUrl: string): Promise<{ success: boolean; development?: boolean; messageId?: string }> => {
-  // Try different email services in order of preference
-  
-  // 1. Try Nodemailer (SMTP/Gmail) - most reliable for production
-  if ((process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) || 
-      (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD)) {
-    try {
-      return await sendPasswordResetNodemailer(email, resetUrl);
-    } catch (error) {
-      console.error('Nodemailer failed, trying next service...', error);
-    }
-  }
-  
-  // 2. Try Resend (recommended API service)
-  if (process.env.RESEND_API_KEY) {
-    try {
-      return await sendPasswordResetResend(email, resetUrl);
-    } catch (error) {
-      console.error('Resend failed, trying next service...');
-    }
-  }
-  
-  // 3. Try SendGrid
-  if (process.env.SENDGRID_API_KEY) {
-    try {
-      return await sendPasswordResetSendGrid(email, resetUrl);
-    } catch (error) {
-      console.error('SendGrid failed, trying next service...');
-    }
-  }
-  
-  // 4. Use Simple Email Service (Always works)
-  console.log('🔄 All email services failed or not configured. Using simple email service...');
-  return await sendSimpleEmail(email, resetUrl);
-};
+  const result = await sendEmail({
+    to: email,
+    subject: 'Reset Your Password - NanoDrip Store',
+    html,
+  });
 
-// Test email configuration
-export const testEmailConfig = async () => {
-  if (process.env.RESEND_API_KEY) {
-    console.log('✅ Resend API key found');
-    return true;
-  }
-  
-  if (process.env.SENDGRID_API_KEY) {
-    console.log('✅ SendGrid API key found');
-    return true;
-  }
-  
-  console.log('⚠️  No email service configured. Running in development mode.');
-  return false;
-};
+  console.log('📬 Password reset email result:', result);
+  return result;
+}

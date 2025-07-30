@@ -12,7 +12,7 @@ export function useAuthRedirect() {
   useEffect(() => {
     // If user is authenticated, redirect to dashboard
     if (status === "authenticated" && session) {
-      router.replace("/dashboard");
+      router.replace("/");
     }
   }, [session, status, router]);
 

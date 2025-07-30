@@ -18,7 +18,7 @@ import GoogleSignInButton from '../google-sign-in-button';
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
 import { useState } from 'react';
-import { Check, X } from 'lucide-react';
+import { Check, X, Mail, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const FormSchema = z
@@ -41,6 +41,7 @@ const FormSchema = z
   });
 
 const SignUpForm = () => {
+  const [showVerificationMessage, setShowVerificationMessage] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
   const [password, setPassword] = useState('');
@@ -89,14 +90,25 @@ const SignUpForm = () => {
         }),
       });
 
+      const data = await response.json();
+
       if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Account created successfully. You can now sign in.",
-        });
-        router.push('/sign-in');
+        if (data.requiresVerification) {
+          toast({
+            title: "Account Created Successfully! 📧",
+            description: data.message,
+            duration: 7000, // Show longer for important message
+          });
+          // Don't redirect immediately, show verification message
+          setShowVerificationMessage(true);
+        } else {
+          toast({
+            title: "Success",
+            description: "Account created successfully. You can now sign in.",
+          });
+          router.push('/sign-in');
+        }
       } else {
-        const data = await response.json();
         toast({
           title: "Error",
           description: data.message || "Something went wrong",
@@ -114,7 +126,40 @@ const SignUpForm = () => {
   };
 
   return (
-    <Form {...form}>
+    <>
+      {showVerificationMessage ? (
+        <div className="text-center space-y-6">
+          <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+            <Mail className="w-8 h-8 text-green-600" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Check Your Email!</h2>
+            <p className="text-gray-600 mb-4">
+              We've sent a verification link to your email address. Please click the link to verify your account before signing in.
+            </p>
+            <p className="text-sm text-gray-500 mb-6">
+              Didn't receive the email? Check your spam folder or contact support.
+            </p>
+          </div>
+          <div className="space-y-3">
+            <Button 
+              onClick={() => router.push('/sign-in')} 
+              className="w-full"
+            >
+              Go to Sign In
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+            <Button 
+              onClick={() => setShowVerificationMessage(false)} 
+              variant="ghost" 
+              className="w-full"
+            >
+              Back to Sign Up
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className='w-full'>
         <div className='space-y-2'>
           <FormField
@@ -211,6 +256,8 @@ const SignUpForm = () => {
         </Link>
       </p>
     </Form>
+      )}
+    </>
   );
 };
 

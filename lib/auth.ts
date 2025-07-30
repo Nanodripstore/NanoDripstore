@@ -44,6 +44,12 @@ export const authOptions: NextAuthOptions = {
         if (!existingUser) {
           return null;
         }
+
+        // Check if email is verified (only for credential logins)
+        if (!existingUser.emailVerified) {
+          throw new Error("Please verify your email before signing in. Check your inbox for the verification link.");
+        }
+
         if (existingUser.password) {
           const passwordMatch = await compare(credentials.password, existingUser.password);
           if (!passwordMatch) {

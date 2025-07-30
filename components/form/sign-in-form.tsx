@@ -89,7 +89,9 @@ const SignInForm = () => {
             name='password'
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Password</FormLabel>
+                <div className="flex items-center justify-between">
+                  <FormLabel>Password</FormLabel>
+                </div>
                 <FormControl>
                   <Input
                     type='password'
@@ -97,6 +99,12 @@ const SignInForm = () => {
                     {...field}
                   />
                 </FormControl>
+                  <Link 
+                    className='text-blue-500 hover:underline text-sm' 
+                    href='/forgot-password'
+                  >
+                    Forgot password?
+                  </Link>
                 <FormMessage />
               </FormItem>
             )}

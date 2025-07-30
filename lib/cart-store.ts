@@ -27,8 +27,9 @@ interface CartStore {
   getTotalPrice: () => number;
   setUser: (userId: string | null) => Promise<void>;
   syncWithDatabase: () => Promise<void>;
+  forceRefresh: () => Promise<void>;
   syncSetQuantityInDatabase: (item: Omit<CartItem, 'quantity'>, quantity: number) => Promise<void>;
-  syncRemoveFromDatabase: (productId: number, color: string, size: string) => Promise<void>;
+  syncRemoveFromDatabase: (productId: number, color: string, size: string, retryCount?: number) => Promise<void>;
 }
 
 export const useCartStore = create<CartStore>()(
@@ -99,9 +100,19 @@ export const useCartStore = create<CartStore>()(
         // Remove from database in background if user is logged in
         const userId = get().currentUserId;
         if (userId && itemToRemove) {
-          // Run in background without awaiting
-          get().syncRemoveFromDatabase(id, color, size)
-            .catch(err => console.error('Background item removal failed:', err));
+          try {
+            await get().syncRemoveFromDatabase(id, color, size);
+            // Force a sync to ensure consistency
+            setTimeout(() => {
+              get().syncWithDatabase().catch(err => console.error('Post-removal sync failed:', err));
+            }, 100);
+          } catch (err) {
+            console.error('Failed to remove item from database:', err);
+            // If database removal fails, revert the local change
+            set({
+              items: [...get().items, itemToRemove]
+            });
+          }
         }
       },
       updateQuantity: async (id, color, size, quantity) => {
@@ -110,23 +121,33 @@ export const useCartStore = create<CartStore>()(
           return;
         }
         
+        const oldItems = get().items;
+        const itemToUpdate = oldItems.find(item => item.id === id && item.color === color && item.size === size);
+        
         // Update local state immediately for responsive UI
         set({
-          items: get().items.map(item =>
+          items: oldItems.map(item =>
             item.id === id && item.color === color && item.size === size
               ? { ...item, quantity }
               : item
           )
         });
 
-        // Update database in background if user is logged in
+        // Update database if user is logged in
         const userId = get().currentUserId;
-        if (userId) {
-          const item = get().items.find(item => item.id === id && item.color === color && item.size === size);
-          if (item) {
-            // Run in background without awaiting
-            get().syncSetQuantityInDatabase(item, quantity)
-              .catch(err => console.error('Background quantity update failed:', err));
+        if (userId && itemToUpdate) {
+          try {
+            await get().syncSetQuantityInDatabase(itemToUpdate, quantity);
+            // Force a brief sync to ensure consistency
+            setTimeout(() => {
+              get().syncWithDatabase().catch(err => console.error('Post-update sync failed:', err));
+            }, 100);
+          } catch (err) {
+            console.error('Failed to update quantity in database:', err);
+            // If database update fails, revert the local change
+            set({
+              items: oldItems
+            });
           }
         }
       },
@@ -211,6 +232,36 @@ export const useCartStore = create<CartStore>()(
           console.error('Error syncing cart with database:', error);
         }
       },
+      forceRefresh: async () => {
+        // Force refresh cart from database, ignoring local storage
+        const userId = get().currentUserId;
+        if (!userId) return;
+
+        try {
+          const response = await fetch('/api/user/cart');
+          if (response.ok) {
+            const data = await response.json();
+            const dbCartItems = data.items || [];
+            
+            const storeItems: CartItem[] = dbCartItems.map((dbItem: any) => ({
+              id: dbItem.productId,
+              name: dbItem.products?.name || 'Unknown Product',
+              price: dbItem.products?.price || 0,
+              color: dbItem.color || '',
+              size: dbItem.size || '',
+              quantity: dbItem.quantity || 1,
+              image: dbItem.products?.images?.[0] || '',
+              type: dbItem.type || 'tshirt'
+            }));
+            
+            // Update state and localStorage
+            set({ items: storeItems });
+            localStorage.setItem(`cart-${userId}`, JSON.stringify(storeItems));
+          }
+        } catch (error) {
+          console.error('Error force refreshing cart:', error);
+        }
+      },
       syncSetQuantityInDatabase: async (item: Omit<CartItem, 'quantity'>, quantity: number, retryCount = 0) => {
         try {
           // Use PUT method to set exact quantity instead of adding
@@ -251,26 +302,40 @@ export const useCartStore = create<CartStore>()(
           }
         }
       },
-      syncRemoveFromDatabase: async (productId: number, color: string, size: string) => {
+      syncRemoveFromDatabase: async (productId: number, color: string, size: string, retryCount = 0) => {
         try {
-          // We need to find the database item ID first
-          const response = await fetch('/api/user/cart');
-          if (response.ok) {
-            const data = await response.json();
-            const dbItems = data.items || [];
-            const itemToDelete = dbItems.find((item: any) => 
-              item.productId === productId && item.color === color && item.size === size
-            );
+          // Direct approach: find and delete the cart item in one go
+          const response = await fetch('/api/user/cart', {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              productId,
+              color,
+              size
+            }),
+          });
+          
+          if (!response.ok) {
+            console.error(`Failed to remove item from database: ${response.status}`);
             
-            if (itemToDelete) {
-              // Using query parameter as implemented in the API
-              await fetch(`/api/user/cart?id=${itemToDelete.id}`, {
-                method: 'DELETE',
-              });
+            // Retry on server errors
+            if (response.status >= 500 && retryCount < 2) {
+              console.log(`Retrying cart item removal (attempt ${retryCount + 1})...`);
+              await new Promise(resolve => setTimeout(resolve, 500 * (retryCount + 1)));
+              return get().syncRemoveFromDatabase(productId, color, size, retryCount + 1);
             }
           }
         } catch (error) {
           console.error('Error syncing remove from database:', error);
+          
+          // Retry on network errors
+          if (retryCount < 2) {
+            console.log(`Retrying cart removal after error (attempt ${retryCount + 1})...`);
+            await new Promise(resolve => setTimeout(resolve, 500 * (retryCount + 1)));
+            return get().syncRemoveFromDatabase(productId, color, size, retryCount + 1);
+          }
         }
       },
     }),

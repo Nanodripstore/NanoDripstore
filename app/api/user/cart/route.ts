@@ -337,7 +337,7 @@ export async function DELETE(req: Request) {
     const id = url.searchParams.get('id')
     
     if (id) {
-      // Delete specific cart item
+      // Delete specific cart item by ID
       await db.cart_items.delete({
         where: {
           id: id,
@@ -347,6 +347,35 @@ export async function DELETE(req: Request) {
       
       return Response.json({ message: 'Cart item removed successfully' }, { status: StatusCodes.OK })
     } else {
+      // Check if product details are provided in the request body
+      try {
+        const body = await req.json()
+        const { productId, color, size } = body
+
+        if (productId) {
+          // Delete specific cart item by product details
+          const whereClause: any = {
+            userId: user.id,
+            productId: productId
+          }
+          
+          if (color) whereClause.color = color
+          if (size) whereClause.size = size
+
+          const deletedItems = await db.cart_items.deleteMany({
+            where: whereClause
+          })
+
+          return Response.json({ 
+            message: 'Cart item removed successfully',
+            deletedCount: deletedItems.count 
+          }, { status: StatusCodes.OK })
+        }
+      } catch (error) {
+        // If body parsing fails, fall back to clearing all items
+        console.log('No specific item details provided, clearing all cart items')
+      }
+
       // Clear all cart items for the user
       await db.cart_items.deleteMany({
         where: { userId: user.id }

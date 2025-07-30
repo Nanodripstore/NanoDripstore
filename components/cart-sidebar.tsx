@@ -5,6 +5,7 @@ import { X, Plus, Minus, ShoppingBag, Trash2 } from 'lucide-react';
 import { useCartStore } from '@/lib/cart-store';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { useEffect } from 'react';
 
 export default function CartSidebar() {
   const { 
@@ -14,8 +15,17 @@ export default function CartSidebar() {
     removeItem, 
     updateQuantity, 
     getTotalPrice, 
-    getTotalItems 
+    getTotalItems,
+    forceRefresh,
+    currentUserId
   } = useCartStore();
+
+  // Refresh cart when sidebar opens
+  useEffect(() => {
+    if (isOpen && currentUserId) {
+      forceRefresh();
+    }
+  }, [isOpen, currentUserId, forceRefresh]);
 
   const total = getTotalPrice();
   const itemCount = getTotalItems();

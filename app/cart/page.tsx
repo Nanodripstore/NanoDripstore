@@ -9,6 +9,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import Header from '@/components/header'
 import Footer from '@/components/footer'
+import { useEffect } from 'react'
 
 export default function CartPage() {
   const { 
@@ -17,8 +18,17 @@ export default function CartPage() {
     updateQuantity, 
     getTotalPrice, 
     getTotalItems,
-    clearCart 
+    clearCart,
+    forceRefresh,
+    currentUserId
   } = useCartStore()
+
+  // Force refresh cart when page loads
+  useEffect(() => {
+    if (currentUserId) {
+      forceRefresh()
+    }
+  }, [currentUserId, forceRefresh])
 
   const total = getTotalPrice()
   const itemCount = getTotalItems()

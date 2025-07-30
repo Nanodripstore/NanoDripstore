@@ -1,7 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { sendPasswordResetEmail } from '@/lib/email';
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     console.log('🔧 Email Debug Starting...');
     
@@ -26,7 +25,7 @@ export async function GET(request: NextRequest) {
     
     console.log('📧 Email send result:', result);
     
-    return NextResponse.json({
+    return Response.json({
       success: true,
       environment: envCheck,
       emailResult: result,
@@ -36,7 +35,7 @@ export async function GET(request: NextRequest) {
     
   } catch (error) {
     console.error('❌ Debug email failed:', error);
-    return NextResponse.json({
+    return Response.json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : 'No stack',

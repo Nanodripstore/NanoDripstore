@@ -66,9 +66,11 @@ export async function GET() {
       cartCount: user.cart_items.length,
       wishlist: user.wishlist_items.map(item => ({
         id: item.id,
-        name: item.products.name,
-        price: item.products.price,
-        image: item.products.images[0] || ''
+        name: item.products?.name || 'Unknown Product',
+        price: item.products?.price || 0,
+        image: (item.products?.images && Array.isArray(item.products.images) && item.products.images.length > 0) 
+          ? item.products.images[0] 
+          : '/placeholder.png'
       })),
       wishlistCount: user.wishlist_items.length,
       orders: user.orders.map(order => ({

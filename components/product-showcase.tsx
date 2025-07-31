@@ -50,7 +50,9 @@ export default function ProductShowcase() {
   };
 
   const handleQuickView = (product: typeof products[0]) => {
-    router.push(`/product/${product.id}`);
+    // Create a slug from product name
+    const slug = product.name.toLowerCase().replace(/\s+/g, '-');
+    router.push(`/shop/${slug}`);
   };
 
   return (

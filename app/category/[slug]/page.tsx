@@ -110,7 +110,7 @@ export default function CategoryPage({ params }: { params: { slug: string } | Pr
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5, delay: index * 0.05 }}
                     >
-                      <Link href={`/shop/${product.slug}`} className="block">
+                      <Link href={`/shop/${product.name.toLowerCase().replace(/\s+/g, '-')}`} className="block">
                         <Card className="group overflow-hidden border hover:border-primary transition-all duration-300">
                           <CardContent className="p-0">
                             <div className="relative aspect-square overflow-hidden bg-muted">

@@ -6,11 +6,11 @@
 export const publicRoutes = [
   "/",
   "/shop",
+  "/shop/:path*",
   "/category",
   "/about",
   "/reviews",
   "/faq",
-  "/product/:path*",
   "/auth/verify",
 ];
 

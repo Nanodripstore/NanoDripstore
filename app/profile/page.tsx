@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
@@ -15,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import type { Address } from '@/hooks/use-addresses'
+import { useWishlistUpdate } from '@/contexts/wishlist-update-context'
 import { 
   User, 
   MapPin, 
@@ -97,43 +98,18 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
   const [activeTab, setActiveTab] = useState('profile')
+  const { updateCounter } = useWishlistUpdate()
   const [formData, setFormData] = useState({
     name: '',
     phone: ''
   })
 
-  const handleAddressChange = async () => {
-    // Clear cache and force refresh when addresses change
-    clearUserDataCache()
-    await fetchUserData(true)
-  }
-
-  const clearUserDataCache = () => {
-    if (typeof window !== 'undefined' && session?.user?.email) {
-      const cacheKey = `userData_${session.user.email}`
-      sessionStorage.removeItem(cacheKey)
-    }
-  }
-
-  useEffect(() => {
-    // Add timeout to prevent loading flash for fast responses
-    const loadingTimeout = setTimeout(() => setLoading(true), 100)
-    
-    fetchUserData().then(() => {
-      clearTimeout(loadingTimeout)
-    })
-    
-    return () => clearTimeout(loadingTimeout)
-  }, [session?.user?.email])
-
-  const fetchUserData = async (forceRefresh = false) => {
-    // Don't fetch if not authenticated
+  const fetchUserData = useCallback(async (forceRefresh = false) => {
     if (status === 'unauthenticated') {
       setLoading(false)
       return
     }
     
-    // Don't fetch until auth is complete
     if (status === 'loading') {
       return
     }
@@ -141,16 +117,13 @@ export default function ProfilePage() {
     try {
       setLoading(true)
       
-      // Check for cached data first (unless force refresh is requested)
       const cacheKey = `userData_${session?.user?.email}`
       
-      if (!forceRefresh) {
-        const cached = typeof window !== 'undefined' ? sessionStorage.getItem(cacheKey) : null
-        
+      if (!forceRefresh && typeof window !== 'undefined') {
+        const cached = sessionStorage.getItem(cacheKey)
         if (cached) {
           const cachedData = JSON.parse(cached)
-          // Use cached data if it's less than 5 minutes old
-          if (Date.now() - cachedData.timestamp < 5 * 60 * 1000) {
+          if (Date.now() - cachedData.timestamp < 2 * 60 * 1000) { // 2 minutes cache
             setUserData(cachedData.data)
             setFormData({
               name: cachedData.data.name || '',
@@ -159,11 +132,6 @@ export default function ProfilePage() {
             setLoading(false)
             return
           }
-        }
-      } else {
-        // Clear cache if force refresh is requested
-        if (typeof window !== 'undefined') {
-          sessionStorage.removeItem(cacheKey)
         }
       }
       
@@ -180,15 +148,52 @@ export default function ProfilePage() {
         })
         
         // Cache the data
-        sessionStorage.setItem(cacheKey, JSON.stringify({
-          data,
-          timestamp: Date.now()
-        }))
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem(cacheKey, JSON.stringify({
+            data,
+            timestamp: Date.now()
+          }))
+        }
       }
     } catch (error) {
       console.error('Error fetching user data:', error)
     } finally {
       setLoading(false)
+    }
+  }, [session?.user?.email, status])
+
+  // Initial data fetch
+  useEffect(() => {
+    fetchUserData()
+  }, [session?.user?.email, fetchUserData])
+
+  // Refetch when wishlist is updated (via context)
+  useEffect(() => {
+    if (updateCounter > 0) {
+      console.log('Wishlist update detected, refreshing profile data...')
+      fetchUserData(true)
+    }
+  }, [updateCounter, fetchUserData])
+
+  // Handle tab change with immediate refresh for wishlist
+  const handleTabChange = useCallback((newTab: string) => {
+    setActiveTab(newTab)
+    if (newTab === 'wishlist') {
+      console.log('Switching to wishlist tab, refreshing data...')
+      fetchUserData(true)
+    }
+  }, [fetchUserData])
+
+  const handleAddressChange = useCallback(async () => {
+    // Refresh data when addresses change
+    await fetchUserData(true)
+  }, [fetchUserData])
+
+  // Helper to clear cached user data
+  const clearUserDataCache = () => {
+    if (typeof window !== 'undefined' && session?.user?.email) {
+      const cacheKey = `userData_${session.user.email}`
+      sessionStorage.removeItem(cacheKey)
     }
   }
 
@@ -335,7 +340,7 @@ export default function ProfilePage() {
               </div>
             </div>
             
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="mt-6">
               <TabsList className="grid grid-cols-4">
                 <TabsTrigger value="profile">
                   <User size={18} className="mr-2" />

@@ -4,6 +4,7 @@ import { Inter } from 'next/font/google';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { Providers } from '@/components/providers';
+import { WishlistUpdateProvider } from '@/contexts/wishlist-update-context';
 import CartSidebar from '@/components/cart-sidebar';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -22,14 +23,16 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <Providers>
-          <div className="flex flex-col min-h-screen">
-            {children}
-          </div>
-          <CartSidebar />
-          <Toaster />
-          <SonnerToaster position="top-center" />
+          <WishlistUpdateProvider>
+            <div className="flex flex-col min-h-screen">
+              {children}
+            </div>
+            <CartSidebar />
+            <Toaster />
+            <SonnerToaster position="top-center" />
+          </WishlistUpdateProvider>
         </Providers>
       </body>
-    </html >
+    </html>
   );
 }

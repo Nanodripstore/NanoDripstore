@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { toast } from '@/components/ui/use-toast'
+import { useWishlistUpdate } from '@/contexts/wishlist-update-context'
 
 export interface Product {
   id: string
@@ -14,9 +15,9 @@ export interface Product {
 
 export interface WishlistItem {
   id: string
-  productId: string
+  productId: number
   userId: string
-  product: Product
+  products: Product
   createdAt: string
   updatedAt: string
 }
@@ -25,6 +26,7 @@ export function useWishlist() {
   const [loading, setLoading] = useState(false)
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([])
   const { data: session } = useSession()
+  const { triggerUpdate } = useWishlistUpdate()
 
   const fetchWishlist = useCallback(async () => {
     if (!session) return []
@@ -62,7 +64,7 @@ export function useWishlist() {
       })
       return null
     }
-    
+
     try {
       setLoading(true)
       
@@ -98,9 +100,25 @@ export function useWishlist() {
       
       setWishlistItems(prev => [...prev, addedItem])
       
+      // Trigger update for other components (like profile page)
+      triggerUpdate()
+      
+      // Dispatch custom event to notify other components
+      const event = new CustomEvent('wishlistChanged', { 
+        detail: { action: 'added', item: addedItem } 
+      })
+      console.log('Dispatching wishlistChanged event (added):', event.detail)
+      window.dispatchEvent(event)
+      
+      // Also trigger a storage event for cross-tab communication
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('wishlistLastUpdate', Date.now().toString())
+        setTimeout(() => localStorage.removeItem('wishlistLastUpdate'), 100)
+      }
+      
       toast({
         title: "Added to wishlist",
-        description: `${addedItem.product.name} added to your wishlist`
+        description: `${addedItem.products.name} added to your wishlist`
       })
       
       return addedItem
@@ -133,6 +151,22 @@ export function useWishlist() {
       
       setWishlistItems(prev => prev.filter(item => item.id !== wishlistItemId))
       
+      // Trigger update for other components (like profile page)
+      triggerUpdate()
+      
+      // Dispatch custom event to notify other components
+      const event = new CustomEvent('wishlistChanged', { 
+        detail: { action: 'removed', itemId: wishlistItemId } 
+      })
+      console.log('Dispatching wishlistChanged event (removed):', event.detail)
+      window.dispatchEvent(event)
+      
+      // Also trigger a storage event for cross-tab communication
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('wishlistLastUpdate', Date.now().toString())
+        setTimeout(() => localStorage.removeItem('wishlistLastUpdate'), 100)
+      }
+      
       toast({
         title: "Removed from wishlist",
         description: "Item removed from your wishlist"
@@ -153,7 +187,7 @@ export function useWishlist() {
   }, [session])
 
   const isInWishlist = useCallback((productId: string) => {
-    return wishlistItems.some(item => item.productId === productId)
+    return wishlistItems.some(item => item.productId.toString() === productId)
   }, [wishlistItems])
 
   return {

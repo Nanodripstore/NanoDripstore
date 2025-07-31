@@ -1,15 +1,18 @@
 import { db } from '@/lib/db'
 import { StatusCodes } from 'http-status-codes'
 
-export async function GET(req: Request, context: { params: { slug: string } }) {
+export async function GET(req: Request, context: { params: Promise<{ slug: string }> }) {
   try {
+    // Await params in Next.js 15
+    const { slug } = await context.params;
+    
     // Since the schema doesn't have a slug field, we'll need to create a slug from the name
     // Get all products
     const products = await db.products.findMany()
     
     // Create slugs for each product and find the one that matches the requested slug
     const product = products.find(p => 
-      p.name.toLowerCase().replace(/\s+/g, '-') === context.params.slug
+      p.name.toLowerCase().replace(/\s+/g, '-') === slug
     )
     
     if (!product) {
@@ -41,7 +44,7 @@ export async function GET(req: Request, context: { params: { slug: string } }) {
     // Return product with calculated fields
     return Response.json({
       ...product,
-      slug: context.params.slug,
+      slug: slug,
       averageRating: product.rating,
       reviewCount: product.reviews,
       relatedProducts: relatedWithRating

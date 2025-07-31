@@ -59,6 +59,13 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Product ID is required' }, { status: StatusCodes.BAD_REQUEST })
     }
 
+    // Convert productId to number since the database expects an integer
+    const productIdInt = parseInt(productId)
+    
+    if (isNaN(productIdInt)) {
+      return Response.json({ error: 'Invalid product ID' }, { status: StatusCodes.BAD_REQUEST })
+    }
+
     const user = await db.user.findUnique({
       where: { email: session.user.email },
       select: {
@@ -72,7 +79,7 @@ export async function POST(req: Request) {
 
     // Check if product exists
     const product = await db.products.findUnique({
-      where: { id: productId }
+      where: { id: productIdInt }
     })
 
     if (!product) {
@@ -83,7 +90,7 @@ export async function POST(req: Request) {
     const existingItem = await db.wishlist_items.findFirst({
       where: {
         userId: user.id,
-        productId
+        productId: productIdInt
       }
     })
 
@@ -99,7 +106,7 @@ export async function POST(req: Request) {
           connect: { id: user.id }
         },
         products: {
-          connect: { id: productId }
+          connect: { id: productIdInt }
         }
       },
       include: {

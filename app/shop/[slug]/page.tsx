@@ -17,6 +17,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useProduct } from "@/hooks/use-products";
+import { useWishlist } from "@/hooks/use-wishlist";
 import Link from "next/link";
 import { use } from "react";
 
@@ -24,6 +25,7 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
   const router = useRouter();
   const { addItem } = useCartStore();
   const { data: session } = useSession();
+  const { addToWishlist, removeFromWishlist, isInWishlist, fetchWishlist, loading: wishlistLoading, wishlist } = useWishlist();
   
   // Get the slug safely whether params is a promise or not
   const slug = typeof params === 'object' && !('then' in params) 
@@ -60,6 +62,13 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
+
+  // Fetch wishlist when component mounts
+  useEffect(() => {
+    if (session) {
+      fetchWishlist();
+    }
+  }, [session, fetchWishlist]);
 
   const handleAddToCart = () => {
     if (!session?.user) {
@@ -98,6 +107,34 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
       toast.success(`Added ${quantity} × ${product.name} to cart!`, {
         description: `Color: ${selectedColor} • Size: ${selectedSize} • Price: $${product.price.toFixed(2)}`,
       });
+    }
+  };
+
+  const handleWishlistToggle = async () => {
+    if (!session?.user) {
+      toast.error("Please sign in to use wishlist", {
+        description: "You need to be logged in to save items to your wishlist",
+        action: {
+          label: "Sign In",
+          onClick: () => router.push("/sign-in"),
+        },
+      });
+      return;
+    }
+
+    if (!product) return;
+
+    const productInWishlist = isInWishlist(product.id.toString());
+    
+    if (productInWishlist) {
+      // Find the wishlist item to get its ID for removal
+      const wishlistItem = wishlist.find(item => item.productId.toString() === product.id.toString());
+      
+      if (wishlistItem) {
+        await removeFromWishlist(wishlistItem.id);
+      }
+    } else {
+      await addToWishlist(product.id.toString());
     }
   };
 
@@ -370,14 +407,22 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
               <Button
                 variant="outline"
                 className="py-6"
+                onClick={handleWishlistToggle}
+                disabled={wishlistLoading}
               >
-                <Heart className="mr-2 h-5 w-5" />
-                Wishlist
+                <Heart 
+                  className={`mr-2 h-5 w-5 ${
+                    product && isInWishlist(product.id.toString()) 
+                      ? 'fill-red-500 text-red-500' 
+                      : ''
+                  }`} 
+                />
+                {product && isInWishlist(product.id.toString()) ? 'In Wishlist' : 'Add to Wishlist'}
               </Button>
               <Button
                 variant="outline"
                 size="icon"
-                className="h-auto py-6"
+                className="h-auto py-3"
               >
                 <Share2 className="h-5 w-5" />
               </Button>

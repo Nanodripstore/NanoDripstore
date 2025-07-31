@@ -190,12 +190,31 @@ export function useWishlist() {
     return wishlistItems.some(item => item.productId.toString() === productId)
   }, [wishlistItems])
 
+  const getWishlistItemId = useCallback((productId: string) => {
+    const item = wishlistItems.find(item => item.productId.toString() === productId)
+    return item?.id || null
+  }, [wishlistItems])
+
+  const removeFromWishlistByProductId = useCallback(async (productId: string) => {
+    const wishlistItemId = getWishlistItemId(productId)
+    if (!wishlistItemId) {
+      toast({
+        title: "Error",
+        description: "Item not found in wishlist",
+        variant: "destructive"
+      })
+      return false
+    }
+    return await removeFromWishlist(wishlistItemId)
+  }, [getWishlistItemId, removeFromWishlist])
+
   return {
     wishlist: wishlistItems,
     loading,
     fetchWishlist,
     addToWishlist,
     removeFromWishlist,
+    removeFromWishlistByProductId,
     isInWishlist
   }
 }

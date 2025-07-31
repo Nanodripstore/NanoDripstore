@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Star, Heart, ShoppingCart, Filter, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCartStore } from '@/lib/cart-store';
+import { useWishlist } from '@/hooks/use-wishlist';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -27,11 +28,44 @@ export default function ShopProducts() {
   const router = useRouter();
   const { addItem } = useCartStore();
   const { data: session } = useSession();
+  const { wishlist, addToWishlist, removeFromWishlistByProductId, isInWishlist, fetchWishlist } = useWishlist();
   
   // States for filters
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortOption, setSortOption] = useState('createdAt:desc');
+
+  // Fetch wishlist when component mounts or session changes
+  useEffect(() => {
+    if (session?.user) {
+      fetchWishlist();
+    }
+  }, [session?.user, fetchWishlist]);
+
+  // Listen for wishlist changes from other components
+  useEffect(() => {
+    const handleWishlistChange = () => {
+      if (session?.user) {
+        fetchWishlist();
+      }
+    };
+
+    // Listen for custom wishlist events
+    window.addEventListener('wishlistChanged', handleWishlistChange);
+    
+    // Listen for localStorage changes (cross-tab updates)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'wishlistLastUpdate') {
+        handleWishlistChange();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('wishlistChanged', handleWishlistChange);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [session?.user, fetchWishlist]);
   
   // Parse sort option
   const [sortBy, sortOrder] = sortOption.split(':');
@@ -92,6 +126,29 @@ export default function ShopProducts() {
     // Create a slug from product name
     const slug = product.name.toLowerCase().replace(/\s+/g, '-');
     router.push(`/shop/${slug}`);
+  };
+
+  const handleWishlistToggle = async (product: any) => {
+    if (!session?.user) {
+      toast.error('Please sign in to use wishlist', {
+        description: 'You need to be logged in to save items to your wishlist',
+        action: {
+          label: 'Sign In',
+          onClick: () => router.push('/sign-in'),
+        },
+      });
+      return;
+    }
+
+    const productId = String(product.id);
+    
+    if (isInWishlist(productId)) {
+      await removeFromWishlistByProductId(productId);
+      toast.success(`Removed ${product.name} from wishlist`);
+    } else {
+      await addToWishlist(productId);
+      toast.success(`Added ${product.name} to wishlist`);
+    }
   };
   
   // Handle search submit
@@ -258,9 +315,21 @@ export default function ShopProducts() {
                       <Button
                         size="icon"
                         variant="secondary"
-                        className="rounded-full shadow-lg h-8 w-8 sm:h-10 sm:w-10 backdrop-blur-sm bg-white/80 hover:bg-white/90 hover:scale-110 transition-all duration-200"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleWishlistToggle(product);
+                        }}
+                        className={`rounded-full shadow-lg h-8 w-8 sm:h-10 sm:w-10 backdrop-blur-sm hover:scale-110 transition-all duration-200 ${
+                          isInWishlist(String(product.id))
+                            ? 'bg-red-500 hover:bg-red-600 text-white shadow-red-300/50' 
+                            : 'bg-white/80 hover:bg-white/90 text-gray-700'
+                        }`}
                       >
-                        <Heart className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <Heart 
+                          className={`h-3 w-3 sm:h-4 sm:w-4 transition-all duration-200 ${
+                            isInWishlist(String(product.id)) ? 'fill-current text-white' : 'text-gray-700'
+                          }`} 
+                        />
                       </Button>
                     </div>
 

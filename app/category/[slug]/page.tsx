@@ -5,6 +5,10 @@ import { motion } from "framer-motion";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
 import { useCategory } from "@/hooks/use-categories";
+import { useWishlist } from "@/hooks/use-wishlist";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,12 +22,71 @@ export default function CategoryPage({ params }: { params: { slug: string } | Pr
     ? params.slug 
     : use(params as Promise<{ slug: string }>).slug;
   
+  const router = useRouter();
+  const { data: session } = useSession();
+  const { wishlist, addToWishlist, removeFromWishlistByProductId, isInWishlist, fetchWishlist } = useWishlist();
+  
   // Convert slug to category name format (e.g., "t-shirts" to "T-Shirts")
   const categoryName = slug.split('-')
     .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
     
   const { data: categoryData, isLoading, error } = useCategory(categoryName);
+
+  // Fetch wishlist when component mounts or session changes
+  useEffect(() => {
+    if (session?.user) {
+      fetchWishlist();
+    }
+  }, [session?.user, fetchWishlist]);
+
+  // Listen for wishlist changes from other components
+  useEffect(() => {
+    const handleWishlistChange = () => {
+      if (session?.user) {
+        fetchWishlist();
+      }
+    };
+
+    // Listen for custom wishlist events
+    window.addEventListener('wishlistChanged', handleWishlistChange);
+    
+    // Listen for localStorage changes (cross-tab updates)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'wishlistLastUpdate') {
+        handleWishlistChange();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('wishlistChanged', handleWishlistChange);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [session?.user, fetchWishlist]);
+
+  const handleWishlistToggle = async (product: any) => {
+    if (!session?.user) {
+      toast.error('Please sign in to use wishlist', {
+        description: 'You need to be logged in to save items to your wishlist',
+        action: {
+          label: 'Sign In',
+          onClick: () => router.push('/sign-in'),
+        },
+      });
+      return;
+    }
+
+    const productId = String(product.id);
+    
+    if (isInWishlist(productId)) {
+      await removeFromWishlistByProductId(productId);
+      toast.success(`Removed ${product.name} from wishlist`);
+    } else {
+      await addToWishlist(productId);
+      toast.success(`Added ${product.name} to wishlist`);
+    }
+  };
 
   // Add view transition for smoother page changes
   useEffect(() => {
@@ -126,8 +189,25 @@ export default function CategoryPage({ params }: { params: { slug: string } | Pr
                                 </div>
                               )}
                               <div className="absolute top-3 right-3 flex gap-2">
-                                <Button size="icon" variant="secondary" className="rounded-full w-8 h-8">
-                                  <Heart className="h-4 w-4" />
+                                <Button 
+                                  size="icon" 
+                                  variant="secondary" 
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleWishlistToggle(product);
+                                  }}
+                                  className={`rounded-full w-8 h-8 transition-all duration-200 ${
+                                    isInWishlist(String(product.id))
+                                      ? 'bg-red-500 hover:bg-red-600 text-white shadow-red-300/50' 
+                                      : 'bg-white/80 hover:bg-white/90 text-gray-700'
+                                  }`}
+                                >
+                                  <Heart 
+                                    className={`h-4 w-4 transition-all duration-200 ${
+                                      isInWishlist(String(product.id)) ? 'fill-current text-white' : 'text-gray-700'
+                                    }`} 
+                                  />
                                 </Button>
                               </div>
                             </div>

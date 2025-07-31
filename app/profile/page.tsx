@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -16,6 +17,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import type { Address } from '@/hooks/use-addresses'
 import { useWishlistUpdate } from '@/contexts/wishlist-update-context'
+import { useWishlist } from '@/hooks/use-wishlist'
 import { 
   User, 
   MapPin, 
@@ -94,11 +96,13 @@ const emptyUser: UserData = {
 
 export default function ProfilePage() {
   const { data: session, status } = useSession()
+  const router = useRouter()
   const [userData, setUserData] = useState<UserData | null>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
   const [activeTab, setActiveTab] = useState('profile')
   const { updateCounter } = useWishlistUpdate()
+  const { removeFromWishlist } = useWishlist()
   const [formData, setFormData] = useState({
     name: '',
     phone: ''
@@ -197,6 +201,19 @@ export default function ProfilePage() {
     }
   }
 
+  // Handle removing item from wishlist
+  const handleRemoveFromWishlist = async (wishlistItemId: string) => {
+    try {
+      const success = await removeFromWishlist(wishlistItemId)
+      if (success) {
+        // Refresh the profile data to update the wishlist display
+        await fetchUserData(true)
+      }
+    } catch (error) {
+      console.error('Error removing item from wishlist:', error)
+    }
+  }
+
   const updateProfile = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -277,6 +294,50 @@ export default function ProfilePage() {
                   <Skeleton className="h-12 w-40 mt-8" />
                 </CardContent>
               </Card>
+            </div>
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  // Show sign-in prompt for unauthenticated users
+  if (status === 'unauthenticated') {
+    return (
+      <>
+        <Header />
+        <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center pt-20">
+          <div className="text-center p-8 max-w-md mx-auto">
+            <div className="bg-primary/10 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-6">
+              <User className="h-12 w-12 text-primary" />
+            </div>
+            <h2 className="text-3xl font-bold mb-4">Sign In Required</h2>
+            <p className="text-muted-foreground mb-8 text-lg">
+              Please sign in to view and manage your profile, orders, and wishlist.
+            </p>
+            <div className="space-y-4">
+              <Button 
+                onClick={() => router.push('/sign-in')}
+                className="w-full py-3 text-lg"
+                size="lg"
+              >
+                Sign In
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => router.push('/sign-up')}
+                className="w-full py-3 text-lg"
+                size="lg"
+              >
+                Create Account
+              </Button>
+              <Button 
+                variant="ghost" 
+                onClick={() => router.push('/')}
+                className="w-full py-2"
+              >
+                Continue Shopping
+              </Button>
             </div>
           </div>
         </div>
@@ -529,6 +590,7 @@ export default function ProfilePage() {
                               size="icon" 
                               variant="destructive" 
                               className="absolute top-2 right-2 h-8 w-8 rounded-full opacity-90"
+                              onClick={() => handleRemoveFromWishlist(item.id)}
                             >
                               <Trash2 size={16} />
                             </Button>

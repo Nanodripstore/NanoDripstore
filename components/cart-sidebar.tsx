@@ -2,12 +2,14 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus, Minus, ShoppingBag, Trash2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useCartStore } from '@/lib/cart-store';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useEffect } from 'react';
 
 export default function CartSidebar() {
+  const router = useRouter();
   const { 
     items, 
     isOpen, 
@@ -80,7 +82,7 @@ export default function CartSidebar() {
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6"
-                          onClick={() => removeItem(item.id, item.color, item.size)}
+                          onClick={() => removeItem(item.id, item.color, item.size, item.variantId)}
                         >
                           <Trash2 className="w-3 h-3" />
                         </Button>
@@ -119,7 +121,14 @@ export default function CartSidebar() {
                 <span>${total.toFixed(2)}</span>
               </div>
               <div className="space-y-2">
-                <Button className="w-full" size="lg">
+                <Button 
+                  className="w-full" 
+                  size="lg"
+                  onClick={() => {
+                    closeCart();
+                    router.push('/checkout');
+                  }}
+                >
                   Checkout
                 </Button>
                 <Button variant="outline" className="w-full" onClick={closeCart}>

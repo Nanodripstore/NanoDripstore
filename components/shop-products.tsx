@@ -144,10 +144,8 @@ export default function ShopProducts() {
     
     if (isInWishlist(productId)) {
       await removeFromWishlistByProductId(productId);
-      toast.success(`Removed ${product.name} from wishlist`);
     } else {
       await addToWishlist(productId);
-      toast.success(`Added ${product.name} to wishlist`);
     }
   };
   
@@ -438,45 +436,77 @@ export default function ShopProducts() {
                     </div>
 
                     {/* Add to Cart Button */}
-                    <Button
-                      onClick={(e) => {
-                        // Provide immediate visual feedback on click
-                        const button = e.currentTarget;
-                        
-                        // Check if button is already in "adding" state
-                        if (button.getAttribute('data-adding') === 'true') {
-                          return;
-                        }
-                        
-                        // Store original content and mark button as adding
-                        const originalContent = `<svg class="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>Add to Cart`;
-                        button.setAttribute('data-adding', 'true');
-                        
-                        // Update button appearance
-                        button.innerHTML = `
-                          <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          <span class="ml-2">Added!</span>
-                        `;
-                        
-                        // Call actual handler
-                        handleAddToCart(product);
-                        
-                        // Restore button after animation
-                        setTimeout(() => {
-                          button.innerHTML = originalContent;
-                          button.setAttribute('data-adding', 'false');
-                        }, 1000);
-                      }}
-                      className="w-full mt-auto text-xs sm:text-sm py-2 sm:py-3 hover:scale-105 transition-all duration-200"
-                      size="sm"
-                      data-adding="false"
-                    >
-                      <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                      Add to Cart
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={(e) => {
+                          // Provide immediate visual feedback on click
+                          const button = e.currentTarget;
+                          
+                          // Check if button is already in "adding" state
+                          if (button.getAttribute('data-adding') === 'true') {
+                            return;
+                          }
+                          
+                          // Store original content and mark button as adding
+                          const originalContent = `<svg class="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>Add to Cart`;
+                          button.setAttribute('data-adding', 'true');
+                          
+                          // Update button appearance
+                          button.innerHTML = `
+                            <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span class="ml-2">Added!</span>
+                          `;
+                          
+                          // Call actual handler
+                          handleAddToCart(product);
+                          
+                          // Restore button after animation
+                          setTimeout(() => {
+                            button.innerHTML = originalContent;
+                            button.setAttribute('data-adding', 'false');
+                          }, 1000);
+                        }}
+                        className="flex-1 text-xs sm:text-sm py-2 sm:py-3 hover:scale-105 transition-all duration-200"
+                        variant="outline"
+                        size="sm"
+                        data-adding="false"
+                      >
+                        <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                        Add to Cart
+                      </Button>
+                      
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!session?.user) {
+                            toast.error('Please sign in to order', {
+                              description: 'You need to be logged in to place an order',
+                              action: {
+                                label: 'Sign In',
+                                onClick: () => router.push('/sign-in'),
+                              },
+                            });
+                            return;
+                          }
+                          
+                          if (!product.sku) {
+                            toast.error('Product not available for direct order');
+                            return;
+                          }
+                          
+                          // Navigate to checkout with product details
+                          const checkoutUrl = `/checkout?product=${product.id}&name=${encodeURIComponent(product.name)}&price=${product.price}&sku=${product.sku}&image=${encodeURIComponent(product.images[0] || '')}`;
+                          router.push(checkoutUrl);
+                        }}
+                        className="flex-1 text-xs sm:text-sm py-2 sm:py-3 hover:scale-105 transition-all duration-200"
+                        size="sm"
+                      >
+                        Order Now
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

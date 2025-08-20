@@ -33,6 +33,11 @@ export async function GET(req: Request) {
     // Query products with filters, sorting and pagination
     const products = await db.products.findMany({
       where,
+      include: {
+        variants: {
+          orderBy: { createdAt: 'asc' } // Order by creation date, first uploaded first
+        }
+      },
       orderBy: {
         [sortBy]: sortOrder,
       },

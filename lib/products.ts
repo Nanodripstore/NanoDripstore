@@ -11,6 +11,7 @@ export interface Product {
   images: string[];
   description: string;
   features: string[];
+  sku?: string; // SKU field for Qikink integration
   isNew?: boolean;
   isBestseller?: boolean;
   category: string;
@@ -45,6 +46,7 @@ export const products: Product[] = [
       "Ribbed cuffs and hem",
       "Machine washable"
     ],
+    sku: "NH-001-CHR",
     isBestseller: true,
     category: "Hoodies"
   },
@@ -63,9 +65,9 @@ export const products: Product[] = [
     ],
     sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
     images: [
-      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500&h=600&fit=crop",
-      "https://images.unsplash.com/photo-1583743814966-8936f37f0c04?w=500&h=600&fit=crop",
-      "https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=500&h=600&fit=crop"
+      "/tshirts/tshirt-shirt.jpg",
+      "/tshirts/tshirt-shirt.jpg",
+      "/tshirts/tshirt-shirt.jpg"
     ],
     description: "A modern take on the classic tee, featuring bold graphics and premium materials. This versatile piece works perfectly for layering or wearing on its own.",
     features: [
@@ -75,6 +77,7 @@ export const products: Product[] = [
       "Tagless comfort",
       "Screen-printed graphics"
     ],
+    sku: "UST-002-BLK",
     isNew: true,
     category: "T-Shirts"
   },
@@ -105,6 +108,7 @@ export const products: Product[] = [
       "Reinforced stitching",
       "Premium embroidered logo"
     ],
+    sku: "POH-003-SLT",
     category: "Hoodies"
   },
   {
@@ -135,6 +139,7 @@ export const products: Product[] = [
       "Durable construction",
       "Versatile styling"
     ],
+    sku: "VNT-004-NVY",
     category: "T-Shirts"
   },
   {

@@ -7,19 +7,54 @@ import { useRouter } from 'next/navigation';
 import { useSession, signIn } from 'next-auth/react';
 import { useCartStore } from '@/lib/cart-store';
 import { useWishlist } from '@/hooks/use-wishlist';
-import { products } from '@/lib/products';
+import { useProducts } from '@/hooks/use-products';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from "sonner";
-
 
 export default function ProductShowcase() {
   const router = useRouter();
   const { data: session } = useSession();
   const { addItem } = useCartStore();
   const { wishlist, addToWishlist, removeFromWishlistByProductId, isInWishlist, fetchWishlist } = useWishlist();
-  const [selectedColor, setSelectedColor] = useState<string>('');
+  const [selectedColors, setSelectedColors] = useState<{ [productId: number]: any }>({});
+  
+  // Fetch products from database (first 6 products, featured/bestsellers)
+  const { data, isLoading, error } = useProducts({
+    query: '',
+    category: '',
+    page: 1,
+    limit: 6,
+    sortBy: 'isBestseller',
+    sortOrder: 'desc'
+  });
+
+  // Custom sorting function: bestseller > new > wishlisted > non-wishlisted
+  const getSortedProducts = (products: any[]) => {
+    if (!products) return [];
+    
+    return products.slice(0, 6).sort((a, b) => {
+      // Priority 1: Bestsellers first
+      if (a.isBestseller && !b.isBestseller) return -1;
+      if (!a.isBestseller && b.isBestseller) return 1;
+      
+      // Priority 2: New products second
+      if (a.isNew && !b.isNew) return -1;
+      if (!a.isNew && b.isNew) return 1;
+      
+      // Priority 3: Wishlisted products third
+      const aIsWishlisted = isInWishlist(a.id);
+      const bIsWishlisted = isInWishlist(b.id);
+      
+      if (aIsWishlisted && !bIsWishlisted) return -1;
+      if (!aIsWishlisted && bIsWishlisted) return 1;
+      
+      // If all priorities are equal, maintain original order
+      return 0;
+    });
+  };
 
   // Fetch wishlist when component mounts or session changes
   useEffect(() => {
@@ -53,7 +88,7 @@ export default function ProductShowcase() {
     };
   }, [session?.user, fetchWishlist]);
 
-  const handleAddToCart = (product: typeof products[0]) => {
+  const handleAddToCart = (product: any, selectedVariant?: any) => {
     if (!session?.user) {
       toast.error('Please sign in to add items to cart', {
         description: 'You need to be logged in to use the shopping cart',
@@ -65,25 +100,47 @@ export default function ProductShowcase() {
       return;
     }
 
-    const defaultColor = product.colors[0]?.name || 'Default';
-    const defaultSize = product.sizes[2] || 'M'; // Default to M size
+    // Use variants if available, otherwise fall back to old color system
+    let colorName, variantId, variantSku, variantPrice;
+    
+    if (product.variants && product.variants.length > 0) {
+      // Use selected variant or first available variant
+      const variant = selectedVariant || product.variants[0];
+      colorName = variant.colorName;
+      variantId = variant.id;
+      variantSku = variant.sku;
+      variantPrice = variant.price || product.price;
+    } else {
+      // Fallback to old color system
+      const colors = typeof product.colors === 'string' 
+        ? JSON.parse(product.colors || '[]') 
+        : product.colors || [];
+      colorName = colors[0]?.name || 'Default';
+      variantPrice = product.price;
+    }
+    
+    const defaultSize = product.sizes[2] || product.sizes[0] || 'M'; // Default to M size or first available
     
     addItem({
       id: product.id,
       name: product.name,
-      price: product.price,
-      color: defaultColor,
+      price: variantPrice,
+      color: colorName,
       size: defaultSize,
-      image: product.images[0],
-      type: product.type
+      image: Array.isArray(product.images) && product.images.length > 0 
+        ? product.images[0] 
+        : '/placeholder-image.jpg',
+      type: product.type as 'tshirt' | 'hoodie',
+      variantId: variantId,
+      sku: variantSku
     });
     
     toast.success(`Added ${product.name} to cart!`, {
-      description: `Color: ${defaultColor} • Size: ${defaultSize} • Price: $${product.price}`,
+      description: `Color: ${colorName} • Size: ${defaultSize} • Price: $${variantPrice.toFixed(2)}`,
     });
   };
 
-  const handleWishlistToggle = async (product: typeof products[0]) => {
+  const handleWishlistToggle = async (product: any) => {
     if (!session?.user) {
       toast.error('Please sign in to use wishlist', {
         description: 'You need to be logged in to save items to your wishlist',
@@ -99,14 +156,12 @@ export default function ProductShowcase() {
     
     if (isInWishlist(productId)) {
       await removeFromWishlistByProductId(productId);
-      toast.success(`Removed ${product.name} from wishlist`);
     } else {
       await addToWishlist(productId);
-      toast.success(`Added ${product.name} to wishlist`);
     }
   };
 
-  const handleQuickView = (product: typeof products[0]) => {
+  const handleQuickView = (product: any) => {
     // Create a slug from product name
     const slug = product.name.toLowerCase().replace(/\s+/g, '-');
     router.push(`/shop/${slug}`);
@@ -140,181 +195,270 @@ export default function ProductShowcase() {
           transition={{ duration: 0.6 }}
           viewport={{ once: true, margin: "-50px" }}
         >
-          {products.slice(0, 6).map((product, index) => (
-            <motion.div
-              key={product.id}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ 
-                opacity: 1, 
-                y: 0,
-                transition: {
-                  duration: 0.5,
-                  delay: index * 0.08,
-                  ease: "easeOut"
-                }
-              }}
-              viewport={{ once: true, margin: "-20px" }}
-              whileHover={{ 
-                y: -4,
-                transition: { 
-                  duration: 0.2,
-                  ease: "easeOut"
-                }
-              }}
-              className="group"
-            >
-              <Card className="overflow-hidden border-0 shadow-md hover:shadow-xl transition-shadow duration-300 bg-card/50 backdrop-blur-sm h-full flex flex-col">
-                <CardContent className="p-0 flex-1 flex flex-col">
-                  {/* Product Image Container */}
-                  <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-secondary/20 to-primary/10">
-                    {/* Badges */}
-                    <div className="absolute top-2 sm:top-4 left-2 sm:left-4 z-10 flex flex-col gap-1 sm:gap-2">
-                      {product.isNew && (
-                        <Badge className="bg-green-500 hover:bg-green-600 text-xs transition-colors">New</Badge>
-                      )}
-                      {product.isBestseller && (
-                        <Badge className="bg-orange-500 hover:bg-orange-600 text-xs transition-colors">Bestseller</Badge>
-                      )}
+          {isLoading ? (
+            // Loading skeletons
+            [...Array(6)].map((_, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.08 }}
+              >
+                <Card className="overflow-hidden border-0 shadow-md h-full flex flex-col">
+                  <CardContent className="p-0 flex-1 flex flex-col">
+                    <Skeleton className="aspect-square w-full" />
+                    <div className="p-3 sm:p-4 flex-1 flex flex-col">
+                      <Skeleton className="h-4 w-3/4 mb-2" />
+                      <Skeleton className="h-3 w-1/2 mb-2" />
+                      <Skeleton className="h-3 w-full mb-2" />
+                      <Skeleton className="h-4 w-1/3 mb-3" />
+                      <Skeleton className="h-8 w-full mt-auto" />
                     </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))
+          ) : error ? (
+            // Error state
+            <div className="col-span-full text-center py-12">
+              <p className="text-muted-foreground">Failed to load products. Please try again later.</p>
+            </div>
+          ) : (
+            // Products from database with custom sorting
+            getSortedProducts(data?.products || []).map((product: any, index: number) => (
+              <motion.div
+                key={product.id}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ 
+                  opacity: 1, 
+                  y: 0,
+                  transition: {
+                    duration: 0.5,
+                    delay: index * 0.08,
+                    ease: "easeOut"
+                  }
+                }}
+                viewport={{ once: true, margin: "-20px" }}
+                whileHover={{ 
+                  y: -4,
+                  transition: { 
+                    duration: 0.2,
+                    ease: "easeOut"
+                  }
+                }}
+                className="group"
+              >
+                <Card className="overflow-hidden border-0 shadow-md hover:shadow-xl transition-shadow duration-300 bg-card/50 backdrop-blur-sm h-full flex flex-col">
+                  <CardContent className="p-0 flex-1 flex flex-col">
+                    {/* Product Image Container */}
+                    <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-secondary/20 to-primary/10">
+                      {/* Badges */}
+                      <div className="absolute top-2 sm:top-4 left-2 sm:left-4 z-10 flex flex-col gap-1 sm:gap-2">
+                        {product.isNew && (
+                          <Badge className="bg-green-500 hover:bg-green-600 text-xs transition-colors">New</Badge>
+                        )}
+                        {product.isBestseller && (
+                          <Badge className="bg-orange-500 hover:bg-orange-600 text-xs transition-colors">Bestseller</Badge>
+                        )}
+                      </div>
 
-                    {/* Heart Icon - Top Right */}
-                    <div className="absolute top-2 sm:top-4 right-2 sm:right-4 z-10">
-                      <Button
-                        size="icon"
-                        variant="secondary"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleWishlistToggle(product);
-                        }}
-                        className={`rounded-full shadow-lg h-8 w-8 sm:h-10 sm:w-10 backdrop-blur-sm hover:scale-110 transition-all duration-200 ${
-                          isInWishlist(String(product.id))
-                            ? 'bg-red-500 hover:bg-red-600 text-white shadow-red-300/50' 
-                            : 'bg-white/80 hover:bg-white/90 text-gray-700'
-                        }`}
-                      >
-                        <Heart 
-                          className={`h-3 w-3 sm:h-4 sm:w-4 transition-all duration-200 ${
-                            isInWishlist(String(product.id)) ? 'fill-current text-white' : 'text-gray-700'
-                          }`} 
-                        />
-                      </Button>
-                    </div>
-
-                    {/* Clickable Product Image */}
-                    <div
-                      className="h-full w-full cursor-pointer"
-                      onClick={() => handleQuickView(product)}
-                    >
-                      <img
-                        src={product.images[0]}
-                        alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
-                        loading={index < 4 ? "eager" : "lazy"}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Product Details */}
-                  <div className="p-3 sm:p-4 lg:p-6 flex-1 flex flex-col">
-                    {/* Rating */}
-                    <div className="flex items-center gap-1 mb-2">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`w-3 h-3 sm:w-4 sm:h-4 ${
-                            i < Math.floor(product.rating)
-                              ? 'text-yellow-400 fill-current'
-                              : 'text-gray-300'
+                      {/* Heart Icon - Top Right */}
+                      <div className="absolute top-2 sm:top-4 right-2 sm:right-4 z-10">
+                        <Button
+                          size="icon"
+                          variant="secondary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleWishlistToggle(product);
+                          }}
+                          className={`rounded-full shadow-lg h-8 w-8 sm:h-10 sm:w-10 backdrop-blur-sm hover:scale-110 transition-all duration-200 ${
+                            isInWishlist(String(product.id))
+                              ? 'bg-red-500 hover:bg-red-600 text-white shadow-red-300/50' 
+                              : 'bg-white/80 hover:bg-white/90 text-gray-700'
                           }`}
-                        />
-                      ))}
-                      <span className="text-xs sm:text-sm text-muted-foreground ml-1">
-                        ({product.reviews})
-                      </span>
-                    </div>
-
-                    {/* Product Name */}
-                    <h3 
-                      className="font-semibold text-sm sm:text-base lg:text-lg mb-2 group-hover:text-primary transition-all line-clamp-2 flex-1 cursor-pointer hover:scale-[1.01] duration-200"
-                      onClick={() => handleQuickView(product)}
-                    >
-                      {product.name}
-                    </h3>
-
-                    {/* Price */}
-                    <div className="flex items-center gap-2 mb-3 sm:mb-4">
-                      <span className="text-lg sm:text-xl lg:text-2xl font-bold">${product.price}</span>
-                      {product.originalPrice && (
-                        <span className="text-sm sm:text-base lg:text-lg text-muted-foreground line-through">
-                          ${product.originalPrice}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Color Options */}
-                    <div className="flex items-center gap-2 mb-3 sm:mb-4">
-                      <Palette className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground" />
-                      <div className="flex gap-1 sm:gap-2">
-                        {product.colors.map((color) => (
-                          <button
-                            key={color.value}
-                            className={`w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 rounded-full border-2 transition-all duration-200 hover:scale-110 ${
-                              selectedColor === color.value
-                                ? 'border-primary scale-110'
-                                : 'border-border hover:border-primary/50'
-                            }`}
-                            style={{ backgroundColor: color.value }}
-                            onClick={() => setSelectedColor(color.value)}
-                            title={color.name}
+                        >
+                          <Heart 
+                            className={`h-3 w-3 sm:h-4 sm:w-4 transition-all duration-200 ${
+                              isInWishlist(String(product.id)) ? 'fill-current text-white' : 'text-gray-700'
+                            }`} 
                           />
-                        ))}
+                        </Button>
+                      </div>
+
+                      {/* Clickable Product Image */}
+                      <div
+                        className="relative w-full h-full cursor-pointer"
+                        onClick={() => handleQuickView(product)}
+                      >
+                        {Array.isArray(product.images) && product.images.length > 0 ? (
+                          <img
+                            src={product.images[0]}
+                            alt={product.name}
+                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-muted">
+                            <span className="text-muted-foreground">No image</span>
+                          </div>
+                        )}
+                        
+                        {/* Hover Overlay */}
+                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                          <div className="bg-white/90 backdrop-blur-sm rounded-full p-2 sm:p-3 transform scale-90 group-hover:scale-100 transition-transform duration-200">
+                            <span className="text-xs sm:text-sm font-medium text-black">Quick View</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Add to Cart Button */}
-                    <Button
-                      className="w-full group/btn text-xs sm:text-sm lg:text-base h-8 sm:h-9 lg:h-10 bg-primary/90 hover:bg-primary hover:scale-[1.02] transition-all duration-200 mt-auto"
-                      onClick={(e) => {
-                        // Provide immediate visual feedback on click
-                        const button = e.currentTarget;
+                    {/* Product Info */}
+                    <div className="p-3 sm:p-4 flex-1 flex flex-col">
+                      {/* Product Name - Clickable */}
+                      <h3 
+                        className="font-semibold text-sm sm:text-base mb-1 sm:mb-2 line-clamp-2 hover:text-primary transition-colors cursor-pointer"
+                        onClick={() => handleQuickView(product)}
+                      >
+                        {product.name}
+                      </h3>
+                      
+                      {/* Rating */}
+                      <div className="flex items-center gap-1 mb-2 sm:mb-3">
+                        <div className="flex">
+                          {[...Array(5)].map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`h-3 w-3 sm:h-4 sm:w-4 ${
+                                i < Math.floor(product.rating)
+                                  ? 'fill-yellow-400 text-yellow-400'
+                                  : 'text-gray-300'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-xs sm:text-sm text-muted-foreground">
+                          {product.rating} ({product.reviews})
+                        </span>
+                      </div>
+
+                      {/* Colors - Updated for Variants */}
+                      <div className="flex items-center gap-1 sm:gap-2 mb-2 sm:mb-3">
+                        <span className="text-xs text-muted-foreground">Colors:</span>
+                        <div className="flex gap-1">
+                          {(() => {
+                            // Use variants if available, otherwise fall back to old color system
+                            const colors = product.variants && product.variants.length > 0
+                              ? product.variants.map((variant: any) => ({
+                                  name: variant.colorName,
+                                  value: variant.colorValue,
+                                  variant: variant
+                                }))
+                              : typeof product.colors === 'string' 
+                                ? JSON.parse(product.colors || '[]') 
+                                : product.colors || [];
+                              
+                            if (!colors || colors.length === 0) {
+                              return (
+                                <span className="text-xs text-muted-foreground">Default</span>
+                              );
+                            }
+                            
+                            const selectedColor = selectedColors[product.id];
+                            
+                            return (
+                              <>
+                                {colors.slice(0, 4).map((color: any, colorIndex: number) => {
+                                  const isSelected = selectedColor?.name === color.name || 
+                                    (!selectedColor && colorIndex === 0);
+                                  
+                                  return (
+                                    <div
+                                      key={colorIndex}
+                                      className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 shadow-sm hover:scale-110 transition-all cursor-pointer ${
+                                        isSelected 
+                                          ? 'border-primary ring-2 ring-primary/30' 
+                                          : 'border-white hover:border-gray-300'
+                                      }`}
+                                      style={{ backgroundColor: color.value || '#cccccc' }}
+                                      title={color.name || 'Color'}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedColors(prev => ({
+                                          ...prev,
+                                          [product.id]: color
+                                        }));
+                                      }}
+                                    />
+                                  );
+                                })}
+                                {colors.length > 4 && (
+                                  <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-gray-200 border-2 border-white shadow-sm flex items-center justify-center">
+                                    <span className="text-xs text-gray-600">+{colors.length - 4}</span>
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </div>
+
+                      {/* Price */}
+                      <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                        <span className="text-lg sm:text-xl font-bold text-primary">
+                          ${product.price}
+                        </span>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const selectedColor = selectedColors[product.id];
+                            handleAddToCart(product, selectedColor?.variant);
+                          }}
+                          className="flex-1 text-xs sm:text-sm py-2 sm:py-3 hover:scale-105 transition-all duration-200"
+                          variant="outline"
+                          size="sm"
+                        >
+                          <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                          Add to Cart
+                        </Button>
                         
-                        // Check if button is already in "adding" state
-                        if (button.getAttribute('data-adding') === 'true') {
-                          return;
-                        }
-                        
-                        // Store original content and mark button as adding
-                        const originalContent = `<svg class="w-3 h-3 sm:w-4 sm:h-4 mr-2 group-hover/btn:rotate-12 transition-transform duration-300" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>Add to Cart`;
-                        button.setAttribute('data-adding', 'true');
-                        
-                        // Update button appearance
-                        button.innerHTML = `
-                          <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          <span class="ml-2">Added!</span>
-                        `;
-                        
-                        // Call actual handler
-                        handleAddToCart(product);
-                        
-                        // Restore button after animation
-                        setTimeout(() => {
-                          button.innerHTML = originalContent;
-                          button.setAttribute('data-adding', 'false');
-                        }, 1000);
-                      }}
-                      data-adding="false"
-                    >
-                      <ShoppingCart className="w-3 h-3 sm:w-4 sm:h-4 mr-2 group-hover/btn:rotate-12 transition-transform duration-300" />
-                      Add to Cart
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!session?.user) {
+                              toast.error('Please sign in to order', {
+                                description: 'You need to be logged in to place an order',
+                                action: {
+                                  label: 'Sign In',
+                                  onClick: () => router.push('/sign-in'),
+                                },
+                              });
+                              return;
+                            }
+                            
+                            if (!(product as any).sku) {
+                              toast.error('Product not available for direct order');
+                              return;
+                            }
+                            
+                            // Navigate to checkout with product details
+                            const checkoutUrl = `/checkout?product=${product.id}&name=${encodeURIComponent(product.name)}&price=${product.price}&sku=${(product as any).sku}&image=${encodeURIComponent(product.images[0] || '')}`;
+                            router.push(checkoutUrl);
+                          }}
+                          className="flex-1 text-xs sm:text-sm py-2 sm:py-3 hover:scale-105 transition-all duration-200"
+                          size="sm"
+                        >
+                          Order Now
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))
+          )}
         </motion.div>
 
         {/* Load More Button */}

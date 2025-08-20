@@ -10,6 +10,8 @@ export interface CartItem {
   quantity: number;
   image: string;
   type: 'tshirt' | 'hoodie';
+  variantId?: number; // Optional variant ID for color variants
+  sku?: string; // Store the specific variant SKU
 }
 
 interface CartStore {
@@ -18,9 +20,9 @@ interface CartStore {
   currentUserId: string | null;
   isUpdating: boolean;
   addItem: (item: Omit<CartItem, 'quantity'>) => Promise<void>;
-  removeItem: (id: number, color: string, size: string) => Promise<void>;
+  removeItem: (id: number, color: string, size: string, variantId?: number) => Promise<void>;
   updateQuantity: (id: number, color: string, size: string, quantity: number) => Promise<void>;
-  clearCart: () => void;
+  clearCart: () => Promise<void>;
   openCart: () => void;
   closeCart: () => void;
   getTotalItems: () => number;
@@ -28,8 +30,8 @@ interface CartStore {
   setUser: (userId: string | null) => Promise<void>;
   syncWithDatabase: () => Promise<void>;
   forceRefresh: () => Promise<void>;
-  syncSetQuantityInDatabase: (item: Omit<CartItem, 'quantity'>, quantity: number) => Promise<void>;
-  syncRemoveFromDatabase: (productId: number, color: string, size: string, retryCount?: number) => Promise<void>;
+  syncSetQuantityInDatabase: (item: Omit<CartItem, 'quantity'>, quantity: number, retryCount?: number) => Promise<void>;
+  syncRemoveFromDatabase: (productId: number, color: string, size: string, variantId?: number, retryCount?: number) => Promise<void>;
 }
 
 export const useCartStore = create<CartStore>()(
@@ -51,14 +53,20 @@ export const useCartStore = create<CartStore>()(
 
         const items = get().items;
         const existingItem = items.find(
-          item => item.id === newItem.id && item.color === newItem.color && item.size === newItem.size
+          item => item.id === newItem.id && 
+                  item.color === newItem.color && 
+                  item.size === newItem.size &&
+                  item.variantId === newItem.variantId
         );
 
         // Update local state immediately
         if (existingItem) {
           const newQuantity = existingItem.quantity + 1;
           const updatedItems = items.map(item =>
-            item.id === newItem.id && item.color === newItem.color && item.size === newItem.size
+            item.id === newItem.id && 
+            item.color === newItem.color && 
+            item.size === newItem.size &&
+            item.variantId === newItem.variantId
               ? { ...item, quantity: newQuantity }
               : item
           );
@@ -84,16 +92,22 @@ export const useCartStore = create<CartStore>()(
           }
         }
       },
-      removeItem: async (id, color, size) => {
+      removeItem: async (id, color, size, variantId) => {
         const currentItems = get().items;
         const itemToRemove = currentItems.find(
-          item => item.id === id && item.color === color && item.size === size
+          item => item.id === id && 
+                  item.color === color && 
+                  item.size === size &&
+                  item.variantId === variantId
         );
         
         // Update UI immediately
         set({
           items: currentItems.filter(
-            item => !(item.id === id && item.color === color && item.size === size)
+            item => !(item.id === id && 
+                     item.color === color && 
+                     item.size === size &&
+                     item.variantId === variantId)
           )
         });
 
@@ -101,7 +115,7 @@ export const useCartStore = create<CartStore>()(
         const userId = get().currentUserId;
         if (userId && itemToRemove) {
           try {
-            await get().syncRemoveFromDatabase(id, color, size);
+            await get().syncRemoveFromDatabase(id, color, size, variantId);
             // Force a sync to ensure consistency
             setTimeout(() => {
               get().syncWithDatabase().catch(err => console.error('Post-removal sync failed:', err));
@@ -151,7 +165,35 @@ export const useCartStore = create<CartStore>()(
           }
         }
       },
-      clearCart: () => set({ items: [] }),
+      clearCart: async () => {
+        // Clear local cart immediately
+        set({ items: [] });
+        
+        // Also clear database cart if user is logged in
+        const userId = get().currentUserId;
+        if (userId) {
+          try {
+            const response = await fetch('/api/user/cart', {
+              method: 'DELETE',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            });
+            
+            if (!response.ok) {
+              console.error('Failed to clear cart from database');
+            }
+            
+            // Clear the localStorage cart for this user as well
+            localStorage.removeItem(`cart-${userId}`);
+          } catch (error) {
+            console.error('Error clearing cart from database:', error);
+          }
+        } else {
+          // Clear guest cart from localStorage
+          localStorage.removeItem('cart-guest');
+        }
+      },
       openCart: () => set({ isOpen: true }),
       closeCart: () => set({ isOpen: false }),
       getTotalItems: () => get().items.reduce((total, item) => total + item.quantity, 0),
@@ -274,6 +316,8 @@ export const useCartStore = create<CartStore>()(
               productId: item.id,
               color: item.color,
               size: item.size,
+              variantId: item.variantId,
+              sku: item.sku,
               quantity: quantity // Set exact quantity
             }),
           });
@@ -282,12 +326,19 @@ export const useCartStore = create<CartStore>()(
             const errorData = await response.text();
             console.error(`Failed to sync item to database: ${response.status}`, errorData);
             
+            // If product not found (404), remove the item from local cart
+            if (response.status === 404) {
+              console.log('Product not found, removing from local cart:', item);
+              get().removeItem(item.id, item.color, item.size, item.variantId);
+              return;
+            }
+            
             // If we get a server error and haven't retried too many times, try again
             if (response.status >= 500 && retryCount < 2) {
               console.log(`Retrying cart sync (attempt ${retryCount + 1})...`);
               // Wait a bit before retrying
               await new Promise(resolve => setTimeout(resolve, 500 * (retryCount + 1)));
-              return get().syncSetQuantityInDatabase(item, quantity);
+              return get().syncSetQuantityInDatabase(item, quantity, retryCount + 1);
             }
           }
         } catch (error) {
@@ -302,7 +353,7 @@ export const useCartStore = create<CartStore>()(
           }
         }
       },
-      syncRemoveFromDatabase: async (productId: number, color: string, size: string, retryCount = 0) => {
+      syncRemoveFromDatabase: async (productId: number, color: string, size: string, variantId?: number, retryCount = 0) => {
         try {
           // Direct approach: find and delete the cart item in one go
           const response = await fetch('/api/user/cart', {
@@ -313,7 +364,8 @@ export const useCartStore = create<CartStore>()(
             body: JSON.stringify({
               productId,
               color,
-              size
+              size,
+              variantId
             }),
           });
           
@@ -324,7 +376,7 @@ export const useCartStore = create<CartStore>()(
             if (response.status >= 500 && retryCount < 2) {
               console.log(`Retrying cart item removal (attempt ${retryCount + 1})...`);
               await new Promise(resolve => setTimeout(resolve, 500 * (retryCount + 1)));
-              return get().syncRemoveFromDatabase(productId, color, size, retryCount + 1);
+              return get().syncRemoveFromDatabase(productId, color, size, variantId, retryCount + 1);
             }
           }
         } catch (error) {
@@ -334,7 +386,7 @@ export const useCartStore = create<CartStore>()(
           if (retryCount < 2) {
             console.log(`Retrying cart removal after error (attempt ${retryCount + 1})...`);
             await new Promise(resolve => setTimeout(resolve, 500 * (retryCount + 1)));
-            return get().syncRemoveFromDatabase(productId, color, size, retryCount + 1);
+            return get().syncRemoveFromDatabase(productId, color, size, variantId, retryCount + 1);
           }
         }
       },

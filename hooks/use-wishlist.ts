@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
-import { toast } from '@/components/ui/use-toast'
+import { toast } from '@/hooks/use-toast'
 import { useWishlistUpdate } from '@/contexts/wishlist-update-context'
 
 export interface Product {
@@ -11,6 +11,7 @@ export interface Product {
   description?: string
   price: number
   imageUrl?: string
+  sku?: string // SKU field for Qikink integration
 }
 
 export interface WishlistItem {
@@ -35,6 +36,12 @@ export function useWishlist() {
       setLoading(true)
       const response = await fetch('/api/user/wishlist')
       
+      if (response.status === 401) {
+        // User is not authenticated, return empty array silently
+        setWishlistItems([])
+        return []
+      }
+      
       if (!response.ok) {
         throw new Error('Failed to fetch wishlist')
       }
@@ -44,11 +51,15 @@ export function useWishlist() {
       return data
     } catch (error) {
       console.error('Error fetching wishlist:', error)
-      toast({
-        title: "Error",
-        description: "Failed to load your wishlist",
-        variant: "destructive"
-      })
+      setWishlistItems([])
+      // Only show error toast for non-auth errors
+      if (error instanceof Error && !error.message.includes('401')) {
+        toast({
+          title: "Error",
+          description: "Failed to load your wishlist",
+          variant: "destructive"
+        })
+      }
       return []
     } finally {
       setLoading(false)
@@ -65,9 +76,26 @@ export function useWishlist() {
       return null
     }
 
+    // Create optimistic item for immediate UI update
+    const optimisticItem = {
+      id: `temp-${Date.now()}`,
+      productId: parseInt(productId),
+      userId: session.user?.id || '',
+      products: {
+        id: productId,
+        name: 'Loading...',
+        description: '',
+        price: 0,
+        imageUrl: ''
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+
+    // Optimistically add to wishlist for immediate UI feedback
+    setWishlistItems(prev => [...prev, optimisticItem])
+
     try {
-      setLoading(true)
-      
       const response = await fetch('/api/user/wishlist', {
         method: 'POST',
         headers: {
@@ -77,6 +105,9 @@ export function useWishlist() {
       })
       
       if (!response.ok) {
+        // Revert optimistic update on error
+        setWishlistItems(prev => prev.filter(item => item.id !== optimisticItem.id))
+        
         const errorData = await response.json()
         
         if (response.status === 409) {
@@ -98,7 +129,10 @@ export function useWishlist() {
       
       const addedItem = await response.json()
       
-      setWishlistItems(prev => [...prev, addedItem])
+      // Replace optimistic item with real item
+      setWishlistItems(prev => prev.map(item => 
+        item.id === optimisticItem.id ? addedItem : item
+      ))
       
       // Trigger update for other components (like profile page)
       triggerUpdate()
@@ -131,25 +165,31 @@ export function useWishlist() {
       })
       return null
     } finally {
-      setLoading(false)
+      // Remove setLoading(false) since we're not setting loading to true
     }
   }, [session])
 
   const removeFromWishlist = useCallback(async (wishlistItemId: string) => {
     if (!session) return false
     
+    // Store the item for potential restoration
+    const itemToRemove = wishlistItems.find(item => item.id === wishlistItemId)
+    
+    // Optimistically remove from wishlist for immediate UI feedback
+    setWishlistItems(prev => prev.filter(item => item.id !== wishlistItemId))
+    
     try {
-      setLoading(true)
-      
       const response = await fetch(`/api/user/wishlist/${wishlistItemId}`, {
         method: 'DELETE'
       })
       
       if (!response.ok) {
+        // Restore item on error
+        if (itemToRemove) {
+          setWishlistItems(prev => [...prev, itemToRemove])
+        }
         throw new Error('Failed to remove item from wishlist')
       }
-      
-      setWishlistItems(prev => prev.filter(item => item.id !== wishlistItemId))
       
       // Trigger update for other components (like profile page)
       triggerUpdate()
@@ -182,7 +222,7 @@ export function useWishlist() {
       })
       return false
     } finally {
-      setLoading(false)
+      // Remove setLoading(false) since we're not setting loading to true
     }
   }, [session])
 

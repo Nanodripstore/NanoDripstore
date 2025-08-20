@@ -63,7 +63,7 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Unauthorized' }, { status: StatusCodes.UNAUTHORIZED })
     }
 
-    const { productId, quantity, size, color } = await req.json()
+    const { productId, quantity, size, color, variantId, sku } = await req.json()
     
     if (!productId || quantity === undefined) {
       return Response.json({ error: 'Product ID and quantity are required' }, { status: StatusCodes.BAD_REQUEST })
@@ -99,7 +99,8 @@ export async function POST(req: Request) {
         userId: user.id,
         productId,
         ...(size && { size }),
-        ...(color && { color })
+        ...(color && { color }),
+        ...(variantId && { variantId })
       }
     })
 
@@ -146,12 +147,8 @@ export async function POST(req: Request) {
       cartItem = await db.cart_items.create({
         data: {
           id: uniqueId,
-          users: {
-            connect: { id: user.id }
-          },
-          products: {
-            connect: { id: productId }
-          },
+          userId: user.id,
+          productId: productId,
           quantity,
           name: productDetails.name || 'Unknown Product',
           price: productDetails.price || 0,
@@ -159,6 +156,8 @@ export async function POST(req: Request) {
           type: 'tshirt', // Default type
           size: size || '',
           color: color || '',
+          variantId: variantId ? parseInt(variantId.toString()) : null,
+          sku: sku || null,
           updatedAt: new Date()
         },
         include: {
@@ -192,7 +191,7 @@ export async function PUT(req: Request) {
       return Response.json({ error: 'Unauthorized' }, { status: StatusCodes.UNAUTHORIZED })
     }
 
-    const { productId, quantity, size, color } = await req.json()
+    const { productId, quantity, size, color, variantId, sku } = await req.json()
     
     if (!productId || quantity === undefined) {
       return Response.json({ error: 'Product ID and quantity are required' }, { status: StatusCodes.BAD_REQUEST })
@@ -228,7 +227,8 @@ export async function PUT(req: Request) {
         userId: user.id,
         productId,
         ...(size && { size }),
-        ...(color && { color })
+        ...(color && { color }),
+        ...(variantId && { variantId })
       }
     })
 
@@ -275,12 +275,8 @@ export async function PUT(req: Request) {
       cartItem = await db.cart_items.create({
         data: {
           id: uniqueId,
-          users: {
-            connect: { id: user.id }
-          },
-          products: {
-            connect: { id: productId }
-          },
+          userId: user.id,
+          productId: productId,
           quantity,
           name: productDetails.name || 'Unknown Product',
           price: productDetails.price || 0,
@@ -288,6 +284,8 @@ export async function PUT(req: Request) {
           type: 'tshirt', // Default type
           size: size || '',
           color: color || '',
+          variantId: variantId ? parseInt(variantId.toString()) : null,
+          sku: sku || null,
           updatedAt: new Date()
         },
         include: {
@@ -350,7 +348,7 @@ export async function DELETE(req: Request) {
       // Check if product details are provided in the request body
       try {
         const body = await req.json()
-        const { productId, color, size } = body
+        const { productId, color, size, variantId } = body
 
         if (productId) {
           // Delete specific cart item by product details
@@ -361,6 +359,7 @@ export async function DELETE(req: Request) {
           
           if (color) whereClause.color = color
           if (size) whereClause.size = size
+          if (variantId) whereClause.variantId = variantId
 
           const deletedItems = await db.cart_items.deleteMany({
             where: whereClause

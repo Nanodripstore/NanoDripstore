@@ -40,8 +40,8 @@ const faqs = [
   },
   {
     id: 7,
-    question: "Can I track my order?",
-    answer: "Absolutely! Once your order ships, you'll receive a tracking number via email. You can also track your order status by logging into your account on our website."
+    question: "How can I check my order status?",
+    answer: "You can view your order status by logging into your account and visiting the 'My Orders' section. We'll also send you email updates when your order status changes."
   },
   {
     id: 8,

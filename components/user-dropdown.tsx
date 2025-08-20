@@ -41,7 +41,7 @@ export default function UserDropdown({ isHomepage, scrolled, getTextColor }: Use
     {
       icon: Package,
       label: 'Orders',
-      href: '/profile',
+      href: '/orders',
       description: 'View order history'
     },
     {

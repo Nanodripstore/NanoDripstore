@@ -1,5 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
 
+interface ProductVariant {
+  id: number;
+  productId: number;
+  colorName: string;
+  colorValue: string;
+  sku: string;
+  price?: number;
+  stockQuantity: number;
+  isAvailable: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface Product {
   id: number;
   name: string;
@@ -10,6 +23,7 @@ interface Product {
   sizes: string[];
   type: string;
   category: string;
+  sku?: string; // SKU field for Qikink integration
   isNew: boolean;
   isBestseller: boolean;
   rating: number;
@@ -17,6 +31,7 @@ interface Product {
   averageRating?: number;
   reviewCount?: number;
   slug?: string;
+  variants?: ProductVariant[];
 }
 
 interface PaginatedResponse {

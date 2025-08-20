@@ -101,19 +101,22 @@ model cart_items {
   id        String   @id
   userId    String
   productId Int
+  variantId Int?     @map("variant_id") // Reference to product_variants
   quantity  Int      @default(1)
-  color     String
+  color     String   // Standardized color name
   size      String
   name      String
   price     Float
   image     String
   type      String
+  sku       String?  // Original Qikink SKU from variant
   createdAt DateTime @default(now())
   updatedAt DateTime
   products  products @relation(fields: [productId], references: [id])
   users     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  variant   product_variants? @relation(fields: [variantId], references: [id])
 
-  @@unique([userId, productId, color, size])
+  @@unique([userId, productId, variantId]) // Use variantId for uniqueness
 }
 
 model order_items {
@@ -155,22 +158,44 @@ model orders {
 model products {
   id             Int              @id @default(autoincrement())
   name           String
-  price          Float
+  price          Float            // Base price (can be overridden by variants)
   description    String?
   images         String[]
-  colors         Json?
+  colors         Json?            // Keep for backward compatibility, will be deprecated
   sizes          String[]
   type           String
   category       String
+  sku            String?          // Base SKU (can be overridden by variants)
   isNew          Boolean          @default(false)
   isBestseller   Boolean          @default(false)
   rating         Float            @default(0)
   reviews        Int              @default(0)
   createdAt      DateTime         @default(now())
-  updatedAt      DateTime
+  updatedAt      DateTime         @updatedAt
   cart_items     cart_items[]
   order_items    order_items[]
   wishlist_items wishlist_items[]
+  variants       product_variants[] // One-to-many relationship with variants
+}
+
+model product_variants {
+  id             Int      @id @default(autoincrement())
+  productId      Int      @map("product_id")
+  colorName      String   @map("color_name") // e.g., "White", "Light Baby Pink"
+  colorValue     String   @map("color_value") // Hex color code for display
+  sku            String   @unique // Original Qikink SKU - DO NOT MODIFY
+  price          Float?   // Optional: if this color has different price
+  stockQuantity  Int      @default(0) @map("stock_quantity")
+  isAvailable    Boolean  @default(true) @map("is_available")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  product        products @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cart_items     cart_items[]
+  
+  @@map("product_variants")
+  @@unique([productId, colorName]) // Prevent duplicate colors for same product
 }
 
 model wishlist_items {

@@ -35,20 +35,27 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
   const { data: product, isLoading, error } = useProduct(slug);
 
   // Product selection states
-  const [selectedColor, setSelectedColor] = useState<string>("");
+  const [selectedVariant, setSelectedVariant] = useState<any>(null);
   const [selectedSize, setSelectedSize] = useState<string>("");
   const [quantity, setQuantity] = useState<number>(1);
+  const [currentImageIndex, setCurrentImageIndex] = useState<number>(0);
 
   // Set defaults when product loads
   useEffect(() => {
     if (product) {
-      // Parse colors if needed
-      const colors = typeof product.colors === 'string' 
-        ? JSON.parse(product.colors || '[]') 
-        : product.colors || [];
-        
-      if (colors.length > 0) {
-        setSelectedColor(colors[0].name || "Default");
+      // Use variants if available, otherwise fall back to old color system
+      if (product.variants && product.variants.length > 0) {
+        // Set the first variant (first uploaded) as default
+        setSelectedVariant(product.variants[0]);
+      } else {
+        // Fallback to old color system
+        const colors = typeof product.colors === 'string' 
+          ? JSON.parse(product.colors || '[]') 
+          : product.colors || [];
+          
+        if (colors.length > 0) {
+          setSelectedVariant({ colorName: colors[0].name || "Default", colorValue: colors[0].value });
+        }
       }
       
       // Set default size
@@ -57,6 +64,94 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
       }
     }
   }, [product]);
+
+  // State to track which images have loaded successfully
+  const [validImages, setValidImages] = useState<string[]>([]);
+  const [imageValidationComplete, setImageValidationComplete] = useState(false);
+
+  // Function to get variant-specific images with multiple angles
+  const getVariantImages = (variant: any, product: any) => {
+    if (!product || !variant) return product?.images || [];
+    
+    const variantImages: string[] = [];
+    
+    // Handle color mapping for specific cases
+    let colorForFile = variant.colorName.toLowerCase();
+    if (colorForFile === 'light baby pink') {
+      colorForFile = 'babypink';
+    }
+    colorForFile = colorForFile.replace(/\s+/g, '');
+    
+    // Based on your actual folder structure, create the base path
+    const basePath = `/hoodies/classic-hoodie`;
+    
+    // Define different angles/views for products based on your actual files
+    const imageAngles = ['front', 'back', 'left', 'right'];
+    const imageExtensions = ['jpg', 'png'];
+    
+    // Generate variant-specific image paths based on your actual naming convention
+    imageAngles.forEach(angle => {
+      imageExtensions.forEach(ext => {
+        // Pattern: hand-{angle}-{color}.{ext} (your actual naming)
+        const imagePath = `${basePath}/hand-${angle}-${colorForFile}.${ext}`;
+        variantImages.push(imagePath);
+      });
+    });
+    
+    // Remove duplicates
+    return [...new Set(variantImages)];
+  };
+
+  // Get current images based on selected variant
+  const allPotentialImages = selectedVariant ? getVariantImages(selectedVariant, product) : (product?.images || []);
+  const currentImages = imageValidationComplete ? validImages : allPotentialImages.slice(0, 1); // Show first image while validating
+
+  // Effect to validate images when variant changes
+  useEffect(() => {
+    if (selectedVariant && allPotentialImages.length > 0) {
+      setImageValidationComplete(false);
+      setValidImages([]);
+      
+      const validateImages = async () => {
+        const validImagesList: string[] = [];
+        
+        // Test each image sequentially to avoid race conditions
+        for (const imagePath of allPotentialImages) {
+          try {
+            await new Promise<void>((resolve, reject) => {
+              const img = new Image();
+              img.onload = () => {
+                validImagesList.push(imagePath);
+                resolve();
+              };
+              img.onerror = () => resolve(); // Don't add to valid list, but continue
+              img.src = imagePath;
+              
+              // Timeout after 2 seconds
+              setTimeout(() => resolve(), 2000);
+            });
+          } catch (error) {
+            // Continue to next image
+          }
+        }
+        
+        // If no variant images found, fall back to product images
+        if (validImagesList.length === 0 && product?.images) {
+          validImagesList.push(...product.images);
+        }
+        
+        setValidImages(validImagesList);
+        setImageValidationComplete(true);
+      };
+      
+      validateImages();
+    }
+  }, [selectedVariant, product]);
+
+  // Reset current image index when variant changes or images change
+  useEffect(() => {
+    setCurrentImageIndex(0);
+  }, [selectedVariant]);
 
   // Smooth scroll to top on load
   useEffect(() => {
@@ -82,7 +177,7 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
       return;
     }
 
-    if (!selectedColor || !selectedSize) {
+    if (!selectedVariant || !selectedSize) {
       toast.error("Please select options", {
         description: "You need to select both color and size before adding to cart",
       });
@@ -90,22 +185,26 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
     }
 
     if (product) {
+      // Use variant price if available, otherwise use product price
+      const itemPrice = selectedVariant.price || product.price;
+      const variantSku = selectedVariant.sku || product.sku;
+      
       for (let i = 0; i < quantity; i++) {
         addItem({
           id: product.id,
           name: product.name,
-          price: product.price,
-          color: selectedColor,
+          price: itemPrice,
+          color: selectedVariant.colorName || selectedVariant.name || "Default",
           size: selectedSize,
-          image: Array.isArray(product.images) && product.images.length > 0
-            ? product.images[0]
-            : "/placeholder.jpg",
+          image: currentImages.length > 0 ? currentImages[0] : "/placeholder.jpg",
           type: product.type === "tshirt" || product.type === "hoodie" ? product.type : "tshirt",
+          sku: variantSku,
+          variantId: selectedVariant.id || null
         });
       }
 
       toast.success(`Added ${quantity} × ${product.name} to cart!`, {
-        description: `Color: ${selectedColor} • Size: ${selectedSize} • Price: $${product.price.toFixed(2)}`,
+        description: `Color: ${selectedVariant.colorName || selectedVariant.name} • Size: ${selectedSize} • Price: $${itemPrice.toFixed(2)}`,
       });
     }
   };
@@ -241,31 +340,61 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
               transition={{ duration: 0.6 }}
               className="aspect-square bg-muted/30 rounded-lg overflow-hidden mb-4"
             >
-              {Array.isArray(product.images) && product.images.length > 0 ? (
+              {currentImages.length > 0 ? (
                 <img
-                  src={product.images[0]}
-                  alt={product.name}
-                  className="w-full h-full object-cover"
+                  src={currentImages[currentImageIndex] || currentImages[0]}
+                  alt={`${product.name} - ${selectedVariant?.colorName || 'Default'}`}
+                  className="w-full h-full object-cover transition-opacity duration-300"
+                  onError={(e) => {
+                    // Try fallback to product default images
+                    const target = e.target as HTMLImageElement;
+                    if (product.images && product.images[0] && target.src !== product.images[0]) {
+                      target.src = product.images[0];
+                    }
+                  }}
                 />
               ) : (
                 <div className="flex items-center justify-center h-full text-muted-foreground">
-                  No image available
+                  <div className="text-center">
+                    <div className="text-4xl mb-2">📷</div>
+                    <div>{imageValidationComplete ? 'No images available' : 'Loading images...'}</div>
+                  </div>
                 </div>
               )}
             </motion.div>
             
-            {Array.isArray(product.images) && product.images.length > 1 && (
+            {currentImages.length > 1 && imageValidationComplete && (
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.2 }}
-                className="grid grid-cols-4 gap-2"
+                className="grid grid-cols-4 gap-2 mt-4"
               >
-                {product.images.slice(0, 4).map((image, i) => (
-                  <div key={i} className="aspect-square bg-muted/30 rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity">
-                    <img src={image} alt={`${product.name} - view ${i + 1}`} className="w-full h-full object-cover" />
+                {currentImages.slice(0, 8).map((image: string, i: number) => (
+                  <div 
+                    key={i} 
+                    className={`aspect-square bg-muted/30 rounded-lg overflow-hidden cursor-pointer transition-all ${
+                      currentImageIndex === i 
+                        ? 'ring-2 ring-primary shadow-lg' 
+                        : 'hover:opacity-90 hover:scale-105'
+                    }`}
+                    onClick={() => setCurrentImageIndex(i)}
+                    title={`View ${i + 1}`}
+                  >
+                    <img 
+                      src={image} 
+                      alt={`${product.name} - ${selectedVariant?.colorName} - view ${i + 1}`} 
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                 ))}
+                
+                {/* Show more indicator if there are more than 8 images */}
+                {currentImages.length > 8 && (
+                  <div className="aspect-square bg-muted/30 rounded-lg flex items-center justify-center text-muted-foreground text-sm">
+                    +{currentImages.length - 8} more
+                  </div>
+                )}
               </motion.div>
             )}
           </div>
@@ -307,8 +436,13 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
             {/* Price */}
             <div className="flex items-center gap-4 mb-6">
               <span className="text-2xl font-bold text-primary">
-                ${product.price?.toFixed(2)}
+                ${(selectedVariant?.price || product.price)?.toFixed(2)}
               </span>
+              {selectedVariant?.price && selectedVariant.price !== product.price && (
+                <span className="text-lg text-muted-foreground line-through">
+                  ${product.price?.toFixed(2)}
+                </span>
+              )}
             </div>
             
             {/* Description */}
@@ -316,28 +450,72 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
               {product.description || "No description available for this product."}
             </p>
             
-            {/* Color selection */}
+            {/* Color/Variant selection */}
             <div className="mb-6">
-              <h3 className="font-medium mb-2">Color: {selectedColor}</h3>
+              <h3 className="font-medium mb-2">
+                Color: {selectedVariant?.colorName || selectedVariant?.name || "Default"}
+              </h3>
               <div className="flex flex-wrap gap-2">
-                {colors.map((color: any, i: number) => (
-                  <div
-                    key={i}
-                    className={`w-10 h-10 rounded-full cursor-pointer transition-all duration-200 flex items-center justify-center ${
-                      selectedColor === color.name
-                        ? "ring-2 ring-primary ring-offset-2"
-                        : "ring-1 ring-border hover:ring-2 hover:ring-primary/50"
-                    }`}
-                    style={{ backgroundColor: color.value || "#ccc" }}
-                    onClick={() => setSelectedColor(color.name)}
-                    title={color.name}
-                  >
-                    {selectedColor === color.name && (
-                      <Check className="h-5 w-5 text-white drop-shadow-md" />
-                    )}
-                  </div>
-                ))}
+                {(() => {
+                  // Use variants if available, otherwise fall back to old color system
+                  const colorOptions = product.variants && product.variants.length > 0
+                    ? product.variants.map((variant: any) => ({
+                        name: variant.colorName,
+                        value: variant.colorValue,
+                        variant: variant,
+                        price: variant.price,
+                        sku: variant.sku,
+                        stock: variant.stockQuantity,
+                        available: variant.isAvailable
+                      }))
+                    : typeof product.colors === 'string' 
+                      ? JSON.parse(product.colors || '[]') 
+                      : product.colors || [];
+                      
+                  return colorOptions.map((color: any, i: number) => {
+                    const isSelected = selectedVariant?.colorName === color.name || selectedVariant?.name === color.name;
+                    const isAvailable = color.available !== false && (color.stock === undefined || color.stock > 0);
+                    
+                    return (
+                      <div
+                        key={i}
+                        className={`relative w-12 h-12 rounded-full cursor-pointer transition-all duration-200 flex items-center justify-center ${
+                          isSelected
+                            ? "ring-2 ring-primary ring-offset-2"
+                            : isAvailable 
+                              ? "ring-1 ring-border hover:ring-2 hover:ring-primary/50"
+                              : "ring-1 ring-gray-200 opacity-50 cursor-not-allowed"
+                        }`}
+                        style={{ backgroundColor: color.value || "#ccc" }}
+                        onClick={() => {
+                          if (isAvailable) {
+                            setSelectedVariant(color.variant || { 
+                              colorName: color.name, 
+                              colorValue: color.value 
+                            });
+                            setCurrentImageIndex(0); // Reset to first image when variant changes
+                          }
+                        }}
+                        title={`${color.name}${color.price ? ` - $${color.price.toFixed(2)}` : ''}${!isAvailable ? ' (Out of stock)' : ''}`}
+                      >
+                        {isSelected && (
+                          <Check className="h-5 w-5 text-white drop-shadow-md" />
+                        )}
+                        {!isAvailable && (
+                          <div className="absolute inset-0 bg-white/50 rounded-full flex items-center justify-center">
+                            <span className="text-xs font-medium text-gray-600">×</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  });
+                })()}
               </div>
+              {selectedVariant?.stock !== undefined && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  {selectedVariant.stock > 0 ? `${selectedVariant.stock} in stock` : 'Out of stock'}
+                </p>
+              )}
             </div>
             
             {/* Size selection */}
@@ -399,11 +577,51 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
             <div className="flex flex-col sm:flex-row gap-3 mb-8">
               <Button
                 className="flex-1 py-6"
+                variant="outline"
                 onClick={handleAddToCart}
               >
                 <ShoppingCart className="mr-2 h-5 w-5" />
                 Add to Cart
               </Button>
+              
+              <Button
+                className="flex-1 py-6"
+                onClick={() => {
+                  if (!session?.user) {
+                    toast.error('Please sign in to order', {
+                      description: 'You need to be logged in to place an order',
+                      action: {
+                        label: 'Sign In',
+                        onClick: () => router.push('/sign-in'),
+                      },
+                    });
+                    return;
+                  }
+                  
+                  if (!selectedVariant || !selectedSize) {
+                    toast.error('Please select options', {
+                      description: 'You need to select both color and size before ordering',
+                    });
+                    return;
+                  }
+                  
+                  if (!selectedVariant.sku && !(product as any).sku) {
+                    toast.error('Product not available for direct order - SKU missing');
+                    return;
+                  }
+                  
+                  // Use variant SKU and price if available, otherwise fall back to product defaults
+                  const orderSku = selectedVariant.sku || (product as any).sku;
+                  const orderPrice = selectedVariant.price || product.price;
+                  
+                  // Navigate to checkout with product details
+                  const checkoutUrl = `/checkout?product=${product.id}&name=${encodeURIComponent(product.name)}&price=${orderPrice}&sku=${orderSku}&image=${encodeURIComponent(currentImages[0] || product.images[0] || '')}&color=${encodeURIComponent(selectedVariant.colorName)}&size=${encodeURIComponent(selectedSize)}`;
+                  router.push(checkoutUrl);
+                }}
+              >
+                Order Now
+              </Button>
+              
               <Button
                 variant="outline"
                 className="py-6"
@@ -419,6 +637,7 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
                 />
                 {product && isInWishlist(product.id.toString()) ? 'In Wishlist' : 'Add to Wishlist'}
               </Button>
+              
               <Button
                 variant="outline"
                 size="icon"

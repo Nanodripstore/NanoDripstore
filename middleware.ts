@@ -4,6 +4,11 @@ export async function middleware(req: any) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   const { pathname } = req.nextUrl;
 
+  // Redirect old dashboard URL to profile
+  if (pathname === '/dashboard') {
+    return Response.redirect(new URL('/profile', req.url));
+  }
+
   // If user is authenticated and trying to access sign-in or sign-up pages
   if (token && (pathname === '/sign-in' || pathname === '/sign-up')) {
     // Redirect to home page

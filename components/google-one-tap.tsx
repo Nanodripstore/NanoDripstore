@@ -66,7 +66,7 @@ export default function GoogleOneTap() {
         // Store user data
         localStorage.setItem('user', JSON.stringify(data.user));
         // Redirect or update UI
-        window.location.href = '/dashboard';
+        window.location.href = '/profile';
       } else {
         console.error('Authentication failed:', data.error);
       }

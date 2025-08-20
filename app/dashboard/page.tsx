@@ -12,7 +12,8 @@ import {
   CreditCard, 
   MapPin, 
   Bell,
-  LogOut
+  LogOut,
+  RefreshCw
 } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import Header from '@/components/header';
@@ -22,12 +23,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCartStore } from '@/lib/cart-store';
+import { useOrders } from '@/hooks/use-orders';
+import { toast } from 'sonner';
 import Image from 'next/image';
 
 export default function Dashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const { items, getTotalItems, getTotalPrice } = useCartStore();
+  const { orders, loading: ordersLoading, error: ordersError, refetch: refetchOrders } = useOrders();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -58,31 +62,6 @@ export default function Dashboard() {
     image: "https://via.placeholder.com/150" 
   };
 
-  // Mock data for demonstration
-  const orderHistory = [
-    {
-      id: 'ORD-001',
-      date: '2024-01-15',
-      status: 'Delivered',
-      total: 129.99,
-      items: 2,
-    },
-    {
-      id: 'ORD-002',
-      date: '2024-01-10',
-      status: 'Shipped',
-      total: 89.99,
-      items: 1,
-    },
-    {
-      id: 'ORD-003',
-      date: '2024-01-05',
-      status: 'Processing',
-      total: 199.99,
-      items: 3,
-    },
-  ];
-
   const wishlistItems = [
     {
       id: 1,
@@ -97,6 +76,28 @@ export default function Dashboard() {
       image: 'https://images.unsplash.com/photo-1564557287817-3785e38ec1f5?w=400&h=400&fit=crop',
     },
   ];
+
+  // Helper function to format order status
+  const getStatusBadgeVariant = (status: string) => {
+    const statusLower = status.toLowerCase();
+    if (statusLower.includes('delivered') || statusLower.includes('completed')) {
+      return 'default';
+    } else if (statusLower.includes('shipped') || statusLower.includes('dispatch')) {
+      return 'secondary';
+    } else if (statusLower.includes('processing') || statusLower.includes('pending')) {
+      return 'outline';
+    }
+    return 'outline';
+  };
+
+  // Helper function to format date
+  const formatDate = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleDateString();
+    } catch {
+      return dateString;
+    }
+  };
 
   return (
     <motion.main
@@ -163,7 +164,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Total Orders</p>
-                  <p className="text-2xl font-bold">{orderHistory.length}</p>
+                  <p className="text-2xl font-bold">{orders.length}</p>
                 </div>
               </div>
             </CardContent>
@@ -217,34 +218,120 @@ export default function Dashboard() {
             <TabsContent value="orders" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Package className="w-5 h-5" />
-                    Order History
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Package className="w-5 h-5" />
+                      Order History
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={refetchOrders}
+                      disabled={ordersLoading}
+                    >
+                      <RefreshCw className={`w-4 h-4 mr-2 ${ordersLoading ? 'animate-spin' : ''}`} />
+                      Refresh
+                    </Button>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {orderHistory.map((order) => (
-                      <div key={order.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center gap-4">
-                          <div>
-                            <p className="font-semibold">{order.id}</p>
-                            <p className="text-sm text-muted-foreground">{order.date}</p>
+                  {ordersLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                      <span className="ml-2">Loading orders...</span>
+                    </div>
+                  ) : ordersError ? (
+                    <div className="text-center py-8">
+                      <Package className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                      <p className="text-muted-foreground mb-2">Failed to load orders</p>
+                      <p className="text-sm text-red-500">{ordersError}</p>
+                      <Button 
+                        variant="outline" 
+                        className="mt-4"
+                        onClick={refetchOrders}
+                      >
+                        Try Again
+                      </Button>
+                    </div>
+                  ) : orders.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Package className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                      <p className="text-muted-foreground mb-2">No orders found</p>
+                      <p className="text-sm text-muted-foreground">Your orders will appear here once you make a purchase</p>
+                      <Button className="mt-4" onClick={() => router.push('/shop')}>
+                        Start Shopping
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {orders.map((order) => (
+                        <div key={order.id || order.order_number} className="border rounded-lg p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div>
+                                <p className="font-semibold">{order.order_number}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {formatDate(order.created_at)}
+                                </p>
+                              </div>
+                              <Badge variant={getStatusBadgeVariant(order.status)}>
+                                {order.status}
+                              </Badge>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-semibold">${order.total_order_value}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {order.line_items?.length || 0} items
+                              </p>
+                            </div>
                           </div>
-                          <Badge variant={
-                            order.status === 'Delivered' ? 'default' :
-                            order.status === 'Shipped' ? 'secondary' : 'outline'
-                          }>
-                            {order.status}
-                          </Badge>
+                          
+                          {/* Shipping Address */}
+                          {order.shipping_address && (
+                            <div className="text-sm text-muted-foreground border-t pt-2">
+                              <p className="font-medium">Shipping to:</p>
+                              <p>
+                                {order.shipping_address.first_name} {order.shipping_address.last_name}
+                              </p>
+                              <p>{order.shipping_address.address1}</p>
+                              <p>
+                                {order.shipping_address.city}, {order.shipping_address.zip}
+                              </p>
+                            </div>
+                          )}
+                          
+                          {/* Order Items */}
+                          {order.line_items && order.line_items.length > 0 && (
+                            <div className="border-t pt-2">
+                              <p className="text-sm font-medium mb-2">Items:</p>
+                              <div className="space-y-2">
+                                {order.line_items.map((item, index) => (
+                                  <div key={index} className="flex items-center gap-3 text-sm">
+                                    {item.designs?.[0]?.mockup_link && (
+                                      <img
+                                        src={item.designs[0].mockup_link}
+                                        alt="Product"
+                                        className="w-10 h-10 object-cover rounded"
+                                        onError={(e) => {
+                                          (e.target as HTMLImageElement).style.display = 'none';
+                                        }}
+                                      />
+                                    )}
+                                    <div className="flex-1">
+                                      <p className="text-muted-foreground">
+                                        SKU: {item.sku} • Qty: {item.quantity}
+                                      </p>
+                                      <p className="font-medium">${item.price}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        <div className="text-right">
-                          <p className="font-semibold">${order.total}</p>
-                          <p className="text-sm text-muted-foreground">{order.items} items</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

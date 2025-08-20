@@ -81,10 +81,8 @@ export default function CategoryPage({ params }: { params: { slug: string } | Pr
     
     if (isInWishlist(productId)) {
       await removeFromWishlistByProductId(productId);
-      toast.success(`Removed ${product.name} from wishlist`);
     } else {
       await addToWishlist(productId);
-      toast.success(`Added ${product.name} to wishlist`);
     }
   };
 

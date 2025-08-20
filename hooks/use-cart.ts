@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
-import { toast } from '@/components/ui/use-toast'
+import { toast } from '@/hooks/use-toast'
 
 export interface Product {
   id: string
@@ -43,6 +43,12 @@ export function useCart() {
       setLoading(true)
       const response = await fetch('/api/user/cart')
       
+      if (response.status === 401) {
+        // User is not authenticated, return null silently
+        setCartData(null)
+        return null
+      }
+      
       if (!response.ok) {
         throw new Error('Failed to fetch cart')
       }
@@ -52,11 +58,15 @@ export function useCart() {
       return data
     } catch (error) {
       console.error('Error fetching cart:', error)
-      toast({
-        title: "Error",
-        description: "Failed to load your cart",
-        variant: "destructive"
-      })
+      setCartData(null)
+      // Only show error toast for non-auth errors
+      if (error instanceof Error && !error.message.includes('401')) {
+        toast({
+          title: "Error",
+          description: "Failed to load your cart",
+          variant: "destructive"
+        })
+      }
       return null
     } finally {
       setLoading(false)

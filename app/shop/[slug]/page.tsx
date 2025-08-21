@@ -16,9 +16,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { useProduct } from "@/hooks/use-products";
+import { useProductFromSheet } from "@/hooks/use-products";
 import { useWishlist } from "@/hooks/use-wishlist";
 import Link from "next/link";
+import OptimizedImage from "@/components/ui/optimized-image";
 import { use } from "react";
 
 export default function ProductDetail({ params }: { params: { slug: string } | Promise<{ slug: string }> }) {
@@ -32,7 +33,7 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
     ? params.slug 
     : use(params as Promise<{ slug: string }>).slug;
     
-  const { data: product, isLoading, error } = useProduct(slug);
+  const { data: product, isLoading, error } = useProductFromSheet(slug);
 
   // Product selection states
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
@@ -69,46 +70,26 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
   const [validImages, setValidImages] = useState<string[]>([]);
   const [imageValidationComplete, setImageValidationComplete] = useState(false);
 
-  // Function to get variant-specific images with multiple angles
-  const getVariantImages = (variant: any, product: any) => {
-    if (!product || !variant) return product?.images || [];
+  // Function to get images from the sheet data based on selected variant
+  const getProductImages = (product: any, selectedVariant: any) => {
+    if (!product) return [];
     
-    const variantImages: string[] = [];
-    
-    // Handle color mapping for specific cases
-    let colorForFile = variant.colorName.toLowerCase();
-    if (colorForFile === 'light baby pink') {
-      colorForFile = 'babypink';
+    // If a variant is selected and it has its own images, use those
+    if (selectedVariant && selectedVariant.images && selectedVariant.images.length > 0) {
+      return selectedVariant.images.filter((img: string) => img && img.trim().length > 0);
     }
-    colorForFile = colorForFile.replace(/\s+/g, '');
     
-    // Based on your actual folder structure, create the base path
-    const basePath = `/hoodies/classic-hoodie`;
-    
-    // Define different angles/views for products based on your actual files
-    const imageAngles = ['front', 'back', 'left', 'right'];
-    const imageExtensions = ['jpg', 'png'];
-    
-    // Generate variant-specific image paths based on your actual naming convention
-    imageAngles.forEach(angle => {
-      imageExtensions.forEach(ext => {
-        // Pattern: hand-{angle}-{color}.{ext} (your actual naming)
-        const imagePath = `${basePath}/hand-${angle}-${colorForFile}.${ext}`;
-        variantImages.push(imagePath);
-      });
-    });
-    
-    // Remove duplicates
-    return [...new Set(variantImages)];
+    // Fallback to product-level images
+    return product.images ? product.images.filter((img: string) => img && img.trim().length > 0) : [];
   };
 
-  // Get current images based on selected variant
-  const allPotentialImages = selectedVariant ? getVariantImages(selectedVariant, product) : (product?.images || []);
-  const currentImages = imageValidationComplete ? validImages : allPotentialImages.slice(0, 1); // Show first image while validating
+  // Get current images from the sheet data
+  const allPotentialImages = getProductImages(product, selectedVariant);
+  const currentImages = allPotentialImages; // Show all images directly without validation for now
 
-  // Effect to validate images when variant changes
+  // Effect to validate images when product or variant changes
   useEffect(() => {
-    if (selectedVariant && allPotentialImages.length > 0) {
+    if (product && allPotentialImages.length > 0) {
       setImageValidationComplete(false);
       setValidImages([]);
       
@@ -124,20 +105,45 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
                 validImagesList.push(imagePath);
                 resolve();
               };
-              img.onerror = () => resolve(); // Don't add to valid list, but continue
+              img.onerror = async () => {
+                // Try different extensions if the original fails
+                const extensions = ['.jpg', '.png', '.jpeg', '.webp'];
+                const basePath = imagePath.replace(/\.[^/.]+$/, ""); // Remove extension
+                
+                for (const ext of extensions) {
+                  try {
+                    await new Promise<void>((resolveExt, rejectExt) => {
+                      const imgExt = new Image();
+                      imgExt.onload = () => {
+                        validImagesList.push(basePath + ext);
+                        resolveExt();
+                      };
+                      imgExt.onerror = () => rejectExt();
+                      imgExt.src = basePath + ext;
+                    });
+                    break; // If successful, break out of extension loop
+                  } catch {
+                    continue; // Try next extension
+                  }
+                }
+                resolve(); // Continue to next image regardless
+              };
               img.src = imagePath;
               
-              // Timeout after 2 seconds
-              setTimeout(() => resolve(), 2000);
+              // Timeout after 3 seconds
+              setTimeout(() => resolve(), 3000);
             });
           } catch (error) {
             // Continue to next image
           }
         }
         
-        // If no variant images found, fall back to product images
-        if (validImagesList.length === 0 && product?.images) {
-          validImagesList.push(...product.images);
+        // If no images found, use a placeholder or fallback
+        if (validImagesList.length === 0) {
+          // Add placeholder or try product-level images
+          if (product?.images && product.images.length > 0) {
+            validImagesList.push(product.images[0]);
+          }
         }
         
         setValidImages(validImagesList);
@@ -146,12 +152,12 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
       
       validateImages();
     }
-  }, [selectedVariant, product]);
+  }, [product, selectedVariant]);
 
-  // Reset current image index when variant changes or images change
+  // Reset current image index when product or variant changes
   useEffect(() => {
     setCurrentImageIndex(0);
-  }, [selectedVariant]);
+  }, [product, selectedVariant]);
 
   // Smooth scroll to top on load
   useEffect(() => {
@@ -189,19 +195,19 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
       const itemPrice = selectedVariant.price || product.price;
       const variantSku = selectedVariant.sku || product.sku;
       
-      for (let i = 0; i < quantity; i++) {
-        addItem({
-          id: product.id,
-          name: product.name,
-          price: itemPrice,
-          color: selectedVariant.colorName || selectedVariant.name || "Default",
-          size: selectedSize,
-          image: currentImages.length > 0 ? currentImages[0] : "/placeholder.jpg",
-          type: product.type === "tshirt" || product.type === "hoodie" ? product.type : "tshirt",
-          sku: variantSku,
-          variantId: selectedVariant.id || null
-        });
-      }
+      console.log('Adding to cart with quantity:', quantity);
+      
+      addItem({
+        id: product.id,
+        name: product.name,
+        price: itemPrice,
+        color: selectedVariant.colorName || selectedVariant.name || "Default",
+        size: selectedSize,
+        image: currentImages.length > 0 ? currentImages[0] : "/placeholder.jpg",
+        type: product.type === "tshirt" || product.type === "hoodie" ? product.type : "tshirt",
+        sku: variantSku
+        // Removed variantId since we're setting it to null for sheet-based products
+      }, quantity);
 
       toast.success(`Added ${quantity} × ${product.name} to cart!`, {
         description: `Color: ${selectedVariant.colorName || selectedVariant.name} • Size: ${selectedSize} • Price: $${itemPrice.toFixed(2)}`,
@@ -581,9 +587,9 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
                 onClick={handleAddToCart}
               >
                 <ShoppingCart className="mr-2 h-5 w-5" />
-                Add to Cart
+                Add to Cart (Qty: {quantity})
               </Button>
-              
+
               <Button
                 className="flex-1 py-6"
                 onClick={() => {

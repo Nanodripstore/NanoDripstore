@@ -19,11 +19,12 @@ import { toast } from 'sonner';
 export default function Checkout() {
   const { data: session } = useSession();
   const router = useRouter();
-  const { items, getTotalPrice, clearCart, removeItem } = useCartStore();
+  const { items, getTotalPrice, clearCart, removeItem, forceRefresh } = useCartStore();
   const [isLoading, setIsLoading] = useState(false);
   const [orderCompleted, setOrderCompleted] = useState(false);
   const [directOrderProduct, setDirectOrderProduct] = useState<any>(null);
   const urlParamsProcessed = useRef(false);
+  const [cartLoaded, setCartLoaded] = useState(false);
 
   const [formData, setFormData] = useState({
     email: session?.user?.email || '',
@@ -44,6 +45,16 @@ export default function Checkout() {
       router.push('/sign-in?callbackUrl=/checkout');
       return;
     }
+
+    // Force refresh cart when checkout page loads to ensure latest data
+    const refreshCart = async () => {
+      console.log('Checkout page: Force refreshing cart...');
+      await forceRefresh();
+      setCartLoaded(true);
+      console.log('Checkout page: Cart refreshed, items:', items);
+    };
+    
+    refreshCart();
 
     // Process URL params only once
     if (!urlParamsProcessed.current) {
@@ -67,14 +78,14 @@ export default function Checkout() {
     }
 
     // Don't redirect to cart if order was just completed or if it's a direct order
-    if (items.length === 0 && !orderCompleted && !directOrderProduct) {
+    if (items.length === 0 && !orderCompleted && !directOrderProduct && cartLoaded) {
       const urlParams = new URLSearchParams(window.location.search);
       const productId = urlParams.get('product');
       if (!productId) {
         router.push('/cart');
       }
     }
-  }, [session, items.length, router, orderCompleted, directOrderProduct]);
+  }, [session, items.length, router, orderCompleted, directOrderProduct, forceRefresh, cartLoaded]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -626,6 +637,10 @@ export default function Checkout() {
                             <h4 className="font-medium truncate">{item.name}</h4>
                             <p className="text-sm text-muted-foreground">
                               {item.color} • {item.size} • Qty: {item.quantity}
+                            </p>
+                            {/* Debug info */}
+                            <p className="text-xs ">
+                              Qty={item.quantity} 
                             </p>
                           </div>
                           <div className="text-right">

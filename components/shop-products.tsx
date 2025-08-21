@@ -1,18 +1,17 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Star, Heart, ShoppingCart, Filter, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCartStore } from '@/lib/cart-store';
 import { useWishlist } from '@/hooks/use-wishlist';
+import { useProductsFromSheet } from '@/hooks/use-products';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
-import { useProducts } from '@/hooks/use-products';
-import { useCategories } from '@/hooks/use-categories';
 import { Input } from '@/components/ui/input';
 import { 
   Select,
@@ -22,6 +21,7 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import OptimizedImage from '@/components/ui/optimized-image';
 import Link from 'next/link';
 
 export default function ShopProducts() {
@@ -29,11 +29,6 @@ export default function ShopProducts() {
   const { addItem } = useCartStore();
   const { data: session } = useSession();
   const { wishlist, addToWishlist, removeFromWishlistByProductId, isInWishlist, fetchWishlist } = useWishlist();
-  
-  // States for filters
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [sortOption, setSortOption] = useState('createdAt:desc');
 
   // Fetch wishlist when component mounts or session changes
   useEffect(() => {
@@ -67,23 +62,33 @@ export default function ShopProducts() {
     };
   }, [session?.user, fetchWishlist]);
   
+  // States for filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [sortOption, setSortOption] = useState('createdAt:desc');
+  
   // Parse sort option
   const [sortBy, sortOrder] = sortOption.split(':');
-  
-  // Fetch products with filters
-  const { 
-    data, 
-    isLoading, 
-    error 
-  } = useProducts({
+
+  // Fetch products from Google Sheet using optimized hook
+  const { data, isLoading, error } = useProductsFromSheet({
     query: searchQuery,
-    category: selectedCategory === 'all' ? '' : selectedCategory,
+    category: selectedCategory !== 'all' ? selectedCategory : '',
     sortBy,
-    sortOrder
+    sortOrder,
+    limit: 20 // Increased limit for shop page
   });
-  
-  // Fetch categories for filter dropdown
-  const { data: categories } = useCategories();
+
+  // Extract categories from fetched data
+  const categories = useMemo(() => {
+    if (data?.products && Array.isArray(data.products)) {
+      const uniqueCategories = [...new Set(data.products.map((p: any) => p?.category) || [])];
+      return uniqueCategories.map(cat => ({ name: cat, slug: cat }));
+    }
+    return [];
+  }, [data?.products]);
+
+  // Force recompilation with a comment change - updated
 
   const handleAddToCart = (product: any) => {
     if (!session?.user) {
@@ -98,9 +103,15 @@ export default function ShopProducts() {
     }
     
     // Parse JSON colors if it's a string
-    const colors = typeof product.colors === 'string' 
-      ? JSON.parse(product.colors) 
-      : product.colors || [];
+    let colors = [];
+    try {
+      colors = typeof product.colors === 'string' 
+        ? JSON.parse(product.colors || '[]') 
+        : product.colors || [];
+    } catch (error) {
+      console.error('Error parsing product colors for cart:', error);
+      colors = [];
+    }
     
     const defaultColor = colors[0]?.name || 'Default';
     const defaultSize = product.sizes?.[0] || 'M'; // Default to first size or M
@@ -200,7 +211,7 @@ export default function ShopProducts() {
                     <SelectItem value="all">All Categories</SelectItem>
                     {categories?.map((category: any) => (
                       <SelectItem key={category.name} value={category.name}>
-                        {category.name} ({category._count.products})
+                        {category.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -247,7 +258,7 @@ export default function ShopProducts() {
             <p className="text-red-500 mb-4">Failed to load products</p>
             <Button onClick={() => window.location.reload()}>Try Again</Button>
           </div>
-        ) : data?.products.length === 0 ? (
+        ) : data?.products?.length === 0 ? (
           <div className="text-center py-12 border rounded-lg bg-muted/30">
             <h3 className="text-xl font-medium mb-2">No products found</h3>
             <p className="text-muted-foreground mb-4">
@@ -263,7 +274,7 @@ export default function ShopProducts() {
               </Link>
             </div>
           </div>
-        ) : (
+        ) : data?.products && data?.products?.length > 0 ? (
           <motion.div 
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-8"
             initial={{ opacity: 0 }}
@@ -271,7 +282,7 @@ export default function ShopProducts() {
             transition={{ duration: 0.6 }}
             viewport={{ once: true, margin: "-50px" }}
           >
-            {data?.products.map((product: any, index: number) => (
+            {data?.products?.map((product: any, index: number) => (
             <motion.div
               key={product.id}
               initial={{ opacity: 0, y: 30 }}
@@ -337,10 +348,10 @@ export default function ShopProducts() {
                       onClick={() => handleQuickView(product)}
                     >
                       {Array.isArray(product.images) && product.images.length > 0 ? (
-                        <img
+                        <OptimizedImage
                           src={product.images[0]}
                           alt={product.name}
-                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          className="w-full h-full transition-transform duration-300 group-hover:scale-105"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-muted">
@@ -388,33 +399,53 @@ export default function ShopProducts() {
 
                     {/* Colors */}
                     <div className="flex items-center gap-1 sm:gap-2 mb-2 sm:mb-3">
-                      <span className="text-xs text-muted-foreground">Colors:</span>
-                      <div className="flex gap-1">
+                      <span className="text-xs text-muted-foreground hidden sm:block">Colors:</span>
+                      <span className="text-xs text-muted-foreground sm:hidden">Colors:</span>
+                      <div className="flex gap-1 sm:gap-1.5">
                         {(() => {
-                          // Parse JSON colors if it's a string
-                          const colors = typeof product.colors === 'string' 
-                            ? JSON.parse(product.colors || '[]') 
-                            : product.colors || [];
+                          // Use variants if available, otherwise fall back to old color system
+                          const colors = product.variants && product.variants.length > 0
+                            ? product.variants.map((variant: any) => ({
+                                name: variant.colorName,
+                                value: variant.colorValue,
+                                variant: variant
+                              }))
+                            : typeof product.colors === 'string' 
+                              ? JSON.parse(product.colors || '[]') 
+                              : product.colors || [];
                             
-                          if (!colors || colors.length === 0) {
+                          if (!colors || !Array.isArray(colors) || colors.length === 0) {
                             return (
                               <span className="text-xs text-muted-foreground">Default</span>
                             );
                           }
                           
+                          const maxColors = 3;
+                          const visibleColors = colors.slice(0, maxColors);
+                          const remainingCount = Math.max(0, colors.length - maxColors);
+                          
                           return (
                             <>
-                              {colors.slice(0, 4).map((color: any, colorIndex: number) => (
+                              {visibleColors.map((color: any, colorIndex: number) => (
                                 <div
                                   key={colorIndex}
-                                  className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 border-white shadow-sm hover:scale-110 transition-transform cursor-pointer"
+                                  className="group relative w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 rounded-full border-2 border-white shadow-md hover:shadow-lg hover:scale-110 transition-all duration-200 cursor-pointer ring-1 ring-gray-200 hover:ring-2 hover:ring-primary/50"
                                   style={{ backgroundColor: color.value || '#cccccc' }}
                                   title={color.name || 'Color'}
-                                />
+                                >
+                                  {/* Tooltip */}
+                                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                                    {color.name || 'Color'}
+                                  </div>
+                                </div>
                               ))}
-                              {colors.length > 4 && (
-                                <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-gray-200 border-2 border-white shadow-sm flex items-center justify-center">
-                                  <span className="text-xs text-gray-600">+{colors.length - 4}</span>
+                              {remainingCount > 0 && (
+                                <div className="group relative w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 rounded-full bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-white shadow-md hover:shadow-lg hover:scale-110 transition-all duration-200 cursor-pointer ring-1 ring-gray-200 hover:ring-2 hover:ring-primary/50 flex items-center justify-center">
+                                  <span className="text-xs font-medium text-gray-600">+{remainingCount}</span>
+                                  {/* Tooltip */}
+                                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                                    {remainingCount} more color{remainingCount > 1 ? 's' : ''}
+                                  </div>
                                 </div>
                               )}
                             </>
@@ -513,16 +544,21 @@ export default function ShopProducts() {
             </motion.div>
           ))}
         </motion.div>
+        ) : (
+          <div className="text-center py-12">
+            <div className="text-gray-500 text-lg mb-2">No products available</div>
+            <div className="text-gray-400 text-sm">Please check back later</div>
+          </div>
         )}
         
         {/* Pagination */}
-        {data?.pagination && data.pagination.totalPages > 1 && (
+        {data?.pagination && data?.pagination?.pages > 1 && (
           <div className="flex justify-center mt-12">
             <div className="flex gap-2">
-              {[...Array(data.pagination.totalPages)].map((_, i) => (
+              {[...Array(data?.pagination?.pages || 1)].map((_, i) => (
                 <Button
                   key={i}
-                  variant={data.pagination.page === i + 1 ? "default" : "outline"}
+                  variant={data?.pagination?.current === i + 1 ? "default" : "outline"}
                   size="sm"
                   className="w-10 h-10"
                 >

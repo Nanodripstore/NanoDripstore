@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useSession, signIn } from 'next-auth/react';
 import { useCartStore } from '@/lib/cart-store';
 import { useWishlist } from '@/hooks/use-wishlist';
-import { useProducts } from '@/hooks/use-products';
+import { useProductsFromSheet } from '@/hooks/use-products';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,13 +21,10 @@ export default function ProductShowcase() {
   const { wishlist, addToWishlist, removeFromWishlistByProductId, isInWishlist, fetchWishlist } = useWishlist();
   const [selectedColors, setSelectedColors] = useState<{ [productId: number]: any }>({});
   
-  // Fetch products from database (first 6 products, featured/bestsellers)
-  const { data, isLoading, error } = useProducts({
-    query: '',
-    category: '',
-    page: 1,
+  // Fetch products directly from Google Sheet using optimized hook
+  const { data, isLoading, error } = useProductsFromSheet({
     limit: 6,
-    sortBy: 'isBestseller',
+    sortBy: 'is_bestseller',
     sortOrder: 'desc'
   });
 
@@ -342,8 +339,9 @@ export default function ProductShowcase() {
 
                       {/* Colors - Updated for Variants */}
                       <div className="flex items-center gap-1 sm:gap-2 mb-2 sm:mb-3">
-                        <span className="text-xs text-muted-foreground">Colors:</span>
-                        <div className="flex gap-1">
+                        <span className="text-xs text-muted-foreground hidden sm:block">Colors:</span>
+                        <span className="text-xs text-muted-foreground sm:hidden">Colors:</span>
+                        <div className="flex gap-1 sm:gap-1.5">
                           {(() => {
                             // Use variants if available, otherwise fall back to old color system
                             const colors = product.variants && product.variants.length > 0
@@ -363,17 +361,20 @@ export default function ProductShowcase() {
                             }
                             
                             const selectedColor = selectedColors[product.id];
+                            const maxColors = 3;
+                            const visibleColors = colors.slice(0, maxColors);
+                            const remainingCount = Math.max(0, colors.length - maxColors);
                             
                             return (
                               <>
-                                {colors.slice(0, 4).map((color: any, colorIndex: number) => {
+                                {visibleColors.map((color: any, colorIndex: number) => {
                                   const isSelected = selectedColor?.name === color.name || 
                                     (!selectedColor && colorIndex === 0);
                                   
                                   return (
                                     <div
                                       key={colorIndex}
-                                      className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 shadow-sm hover:scale-110 transition-all cursor-pointer ${
+                                      className={`group relative w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 rounded-full border-2 shadow-md hover:shadow-lg hover:scale-110 transition-all duration-200 cursor-pointer ring-1 ring-gray-200 hover:ring-2 hover:ring-primary/50 ${
                                         isSelected 
                                           ? 'border-primary ring-2 ring-primary/30' 
                                           : 'border-white hover:border-gray-300'
@@ -387,12 +388,21 @@ export default function ProductShowcase() {
                                           [product.id]: color
                                         }));
                                       }}
-                                    />
+                                    >
+                                      {/* Tooltip */}
+                                      <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                                        {color.name || 'Color'}
+                                      </div>
+                                    </div>
                                   );
                                 })}
-                                {colors.length > 4 && (
-                                  <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-gray-200 border-2 border-white shadow-sm flex items-center justify-center">
-                                    <span className="text-xs text-gray-600">+{colors.length - 4}</span>
+                                {remainingCount > 0 && (
+                                  <div className="group relative w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 rounded-full bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-white shadow-md hover:shadow-lg hover:scale-110 transition-all duration-200 cursor-pointer ring-1 ring-gray-200 hover:ring-2 hover:ring-primary/50 flex items-center justify-center">
+                                    <span className="text-xs font-medium text-gray-600">+{remainingCount}</span>
+                                    {/* Tooltip */}
+                                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                                      {remainingCount} more color{remainingCount > 1 ? 's' : ''}
+                                    </div>
                                   </div>
                                 )}
                               </>

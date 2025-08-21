@@ -226,9 +226,9 @@ export async function PUT(req: Request) {
       where: {
         userId: user.id,
         productId,
-        ...(size && { size }),
-        ...(color && { color }),
-        ...(variantId && { variantId })
+        size: size || '',
+        color: color || ''
+        // Removed variantId check since we're setting it to null for sheet-based products
       }
     })
 
@@ -284,7 +284,7 @@ export async function PUT(req: Request) {
           type: 'tshirt', // Default type
           size: size || '',
           color: color || '',
-          variantId: variantId ? parseInt(variantId.toString()) : null,
+          variantId: null, // Set to null for sheet-based products to avoid foreign key constraint
           sku: sku || null,
           updatedAt: new Date()
         },
@@ -348,7 +348,7 @@ export async function DELETE(req: Request) {
       // Check if product details are provided in the request body
       try {
         const body = await req.json()
-        const { productId, color, size, variantId } = body
+        const { productId, color, size } = body
 
         if (productId) {
           // Delete specific cart item by product details
@@ -359,7 +359,7 @@ export async function DELETE(req: Request) {
           
           if (color) whereClause.color = color
           if (size) whereClause.size = size
-          if (variantId) whereClause.variantId = variantId
+          // Removed variantId check since we're setting it to null for sheet-based products
 
           const deletedItems = await db.cart_items.deleteMany({
             where: whereClause

@@ -6,10 +6,10 @@ import { StatusCodes } from 'http-status-codes'
 // Using dynamic route segments: [cartItemId]
 export async function PATCH(
   req: Request,
-  context: { params: { cartItemId: string } }
+  context: { params: Promise<{ cartItemId: string }> }
 ) {
   try {
-    const cartItemId = context.params.cartItemId
+    const { cartItemId } = await context.params
     const { quantity } = await req.json()
 
     if (quantity === undefined || quantity < 1) {
@@ -92,10 +92,10 @@ export async function PATCH(
 
 export async function DELETE(
   req: Request,
-  context: { params: { cartItemId: string } }
+  context: { params: Promise<{ cartItemId: string }> }
 ) {
   try {
-    const cartItemId = context.params.cartItemId
+    const { cartItemId } = await context.params
 
     const session = await getServerSession(authOptions)
     

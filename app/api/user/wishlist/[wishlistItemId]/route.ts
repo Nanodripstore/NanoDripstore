@@ -6,11 +6,10 @@ import { StatusCodes } from 'http-status-codes'
 // Using dynamic route segments: [wishlistItemId]
 export async function DELETE(
   req: Request,
-  context: { params: Promise<{ wishlistItemId: string }> | { wishlistItemId: string } }
+  context: { params: Promise<{ wishlistItemId: string }> }
 ) {
   try {
-    const params = await context.params
-    const wishlistItemId = params.wishlistItemId
+    const { wishlistItemId } = await context.params
 
     const session = await getServerSession(authOptions)
     

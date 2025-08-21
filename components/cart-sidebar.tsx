@@ -70,12 +70,15 @@ export default function CartSidebar() {
                         alt={item.name}
                         className="w-16 h-16 object-cover rounded"
                       />
-                      <div className="flex-1">
-                        <h4 className="font-medium text-sm">{item.name}</h4>
+                                            <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-sm truncate">{item.name}</h3>
                         <p className="text-xs text-muted-foreground">
                           {item.color} • {item.size}
                         </p>
-                        <p className="font-semibold">${item.price}</p>
+                        <p className="text-xs">
+                          Qty={item.quantity}
+                        </p>
+                        <p className="text-sm font-medium">${(item.price * item.quantity).toFixed(2)}</p>
                       </div>
                       <div className="flex flex-col items-end gap-2">
                         <Button

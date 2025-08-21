@@ -18,7 +18,20 @@ const nextConfig = {
         hostname: 'img.clerk.com',
       }
     ],
-  }
+  },
+  // Configure webpack for better SSL handling
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      // Fix for SSL issues on Windows with Google APIs
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        "net": false,
+        "tls": false,
+        "fs": false,
+      };
+    }
+    return config;
+  },
 };
 
 module.exports = nextConfig;

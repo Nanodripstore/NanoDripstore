@@ -33,7 +33,16 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
     ? params.slug 
     : use(params as Promise<{ slug: string }>).slug;
     
-  const { data: product, isLoading, error } = useProductFromSheet(slug);
+  const [refreshProduct, setRefreshProduct] = useState(false);
+  const { data: product, isLoading, error, refetch } = useProductFromSheet(slug, refreshProduct);
+  
+  // Force refresh on component mount (page reload)
+  useEffect(() => {
+    setRefreshProduct(true);
+    // Reset after a short delay to allow normal caching afterward
+    const timer = setTimeout(() => setRefreshProduct(false), 1000);
+    return () => clearTimeout(timer);
+  }, [slug]); // Re-run when slug changes
 
   // Product selection states
   const [selectedVariant, setSelectedVariant] = useState<any>(null);

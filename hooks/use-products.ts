@@ -105,7 +105,7 @@ export function useProduct(slug: string | null) {
   });
 }
 
-// Hook for fetching products from Google Sheets
+// Hook for fetching products from Google Sheets with improved caching
 export function useProductsFromSheet({
   query = '',
   category = '',
@@ -113,6 +113,7 @@ export function useProductsFromSheet({
   limit = 12,
   sortBy = 'product_id',
   sortOrder = 'asc',
+  refresh = false, // Add refresh parameter
 }: {
   query?: string;
   category?: string;
@@ -120,9 +121,10 @@ export function useProductsFromSheet({
   limit?: number;
   sortBy?: string;
   sortOrder?: string;
+  refresh?: boolean;
 }) {
   return useQuery<any>({
-    queryKey: ['products-sheet', query, category, page, limit, sortBy, sortOrder],
+    queryKey: ['products-sheet', query, category, page, limit, sortBy, sortOrder, refresh],
     queryFn: async () => {
       const searchParams = new URLSearchParams();
       if (query) searchParams.append('query', query);
@@ -131,6 +133,9 @@ export function useProductsFromSheet({
       searchParams.append('limit', limit.toString());
       searchParams.append('sortBy', sortBy);
       searchParams.append('sortOrder', sortOrder);
+      if (refresh) searchParams.append('refresh', 'true'); // Add cache busting
+      // Add timestamp to force fresh data on page reload
+      searchParams.append('t', Date.now().toString());
 
       const response = await fetch(`/api/products/live?${searchParams.toString()}`);
       if (!response.ok) {
@@ -139,21 +144,27 @@ export function useProductsFromSheet({
 
       return response.json();
     },
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes
-    refetchOnWindowFocus: false,
+    staleTime: 30 * 1000, // 30 seconds (very short for real-time updates)
+    gcTime: 1 * 60 * 1000, // 1 minute
+    refetchOnWindowFocus: true, // Enable refetch on focus
+    refetchInterval: refresh ? false : 1 * 60 * 1000, // Auto-refetch every 1 minute
     retry: 1
   });
 }
 
-// New hook for fetching products from Google Sheets
-export function useProductFromSheet(slug: string | null) {
+// New hook for fetching products from Google Sheets with refresh support
+export function useProductFromSheet(slug: string | null, refresh: boolean = false) {
   return useQuery<any>({
-    queryKey: ['product-sheet', slug],
+    queryKey: ['product-sheet', slug, refresh],
     queryFn: async () => {
       if (!slug) return null;
 
-      const response = await fetch(`/api/products/live/${slug}`);
+      const searchParams = new URLSearchParams();
+      if (refresh) searchParams.append('refresh', 'true');
+      // Add timestamp to force fresh data on page reload
+      searchParams.append('t', Date.now().toString());
+
+      const response = await fetch(`/api/products/live/${slug}?${searchParams.toString()}`);
       if (!response.ok) {
         throw new Error('Failed to fetch product from sheet');
       }
@@ -161,9 +172,10 @@ export function useProductFromSheet(slug: string | null) {
       return response.json();
     },
     enabled: !!slug, // Only run the query if slug is provided
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes
-    refetchOnWindowFocus: false,
+    staleTime: 30 * 1000, // 30 seconds (very short for real-time updates)
+    gcTime: 1 * 60 * 1000, // 1 minute
+    refetchOnWindowFocus: true, // Enable refetch on focus
+    refetchInterval: refresh ? false : 1 * 60 * 1000, // Auto-refetch every 1 minute
     retry: 1
   });
 }

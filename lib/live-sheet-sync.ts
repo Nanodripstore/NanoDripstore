@@ -25,7 +25,7 @@ interface CacheEntry {
 
 class SheetCache {
   private cache: Map<string, CacheEntry> = new Map();
-  private defaultTTL = 15 * 60 * 1000; // 15 minutes (increased from 5 minutes)
+  private defaultTTL = 1 * 60 * 1000; // 1 minute for real-time updates
 
   set(key: string, data: any, ttl?: number): void {
     this.cache.set(key, {
@@ -547,9 +547,9 @@ class LiveSheetSyncService {
         const productGroups = this.groupRowsByProductOptimized(parsedRows);
         allProducts = this.convertToProductFormat(productGroups);
 
-        // Cache the processed products
-        sheetCache.set(cacheKey, allProducts, 15 * 60 * 1000); // 15 minutes cache (increased from 5 minutes)
-        console.log(`Cached ${allProducts.length} products`);
+        // Cache the processed products with very short TTL for real-time updates
+        sheetCache.set(cacheKey, allProducts, 1 * 60 * 1000); // 1 minute cache for real-time responsiveness
+        console.log(`Cached ${allProducts.length} products for 1 minute`);
       } else {
         console.log('Cache hit, returning cached products');
       }

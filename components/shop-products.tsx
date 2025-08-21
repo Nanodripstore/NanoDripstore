@@ -66,17 +66,27 @@ export default function ShopProducts() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortOption, setSortOption] = useState('createdAt:desc');
+  const [refreshProducts, setRefreshProducts] = useState(false);
+  
+  // Force refresh on component mount (page reload)
+  useEffect(() => {
+    setRefreshProducts(true);
+    // Reset after a short delay to allow normal caching afterward
+    const timer = setTimeout(() => setRefreshProducts(false), 1000);
+    return () => clearTimeout(timer);
+  }, []);
   
   // Parse sort option
   const [sortBy, sortOrder] = sortOption.split(':');
 
   // Fetch products from Google Sheet using optimized hook
-  const { data, isLoading, error } = useProductsFromSheet({
+  const { data, isLoading, error, refetch } = useProductsFromSheet({
     query: searchQuery,
     category: selectedCategory !== 'all' ? selectedCategory : '',
     sortBy,
     sortOrder,
-    limit: 20 // Increased limit for shop page
+    limit: 20, // Increased limit for shop page
+    refresh: refreshProducts
   });
 
   // Extract categories from fetched data

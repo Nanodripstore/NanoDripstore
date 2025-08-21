@@ -20,12 +20,22 @@ export default function ProductShowcase() {
   const { addItem } = useCartStore();
   const { wishlist, addToWishlist, removeFromWishlistByProductId, isInWishlist, fetchWishlist } = useWishlist();
   const [selectedColors, setSelectedColors] = useState<{ [productId: number]: any }>({});
+  const [refreshProducts, setRefreshProducts] = useState(false);
+  
+  // Force refresh on component mount (page reload)
+  useEffect(() => {
+    setRefreshProducts(true);
+    // Reset after a short delay to allow normal caching afterward
+    const timer = setTimeout(() => setRefreshProducts(false), 1000);
+    return () => clearTimeout(timer);
+  }, []);
   
   // Fetch products directly from Google Sheet using optimized hook
-  const { data, isLoading, error } = useProductsFromSheet({
+  const { data, isLoading, error, refetch } = useProductsFromSheet({
     limit: 6,
     sortBy: 'is_bestseller',
-    sortOrder: 'desc'
+    sortOrder: 'desc',
+    refresh: refreshProducts
   });
 
   // Custom sorting function: bestseller > new > wishlisted > non-wishlisted

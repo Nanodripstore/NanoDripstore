@@ -6,6 +6,9 @@ export async function GET(
 ) {
   try {
     const { slug } = await params;
+    const { searchParams } = new URL(request.url);
+    const refresh = searchParams.get('refresh') === 'true'; // Cache busting parameter
+    const timestamp = searchParams.get('t'); // Timestamp for page reloads
 
     if (!slug) {
       return Response.json(
@@ -39,6 +42,12 @@ export async function GET(
 
     const syncService = new LiveSheetSyncService();
     
+    // Clear cache if refresh is requested or timestamp indicates fresh page load
+    if (refresh || timestamp) {
+      syncService.clearCache();
+      console.log('Cache cleared due to refresh parameter or page reload for product slug');
+    }
+    
     // Fetch single product by slug from Google Sheet
     const product = await syncService.getProductBySlug(slug);
 
@@ -51,7 +60,7 @@ export async function GET(
 
     return Response.json(product, {
       headers: {
-        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600', // 5 minutes cache, 10 minutes stale
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120', // 1 minute cache, 2 minutes stale
       }
     });
 

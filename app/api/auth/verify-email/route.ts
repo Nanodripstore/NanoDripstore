@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { normalizeEmail } from '@/lib/utils';
 
 export async function GET(request: Request) {
   try {
@@ -12,13 +13,15 @@ export async function GET(request: Request) {
       }, { status: 400 });
     }
 
-    console.log('🔍 Verifying email for:', email, 'with token:', token);
+    // Normalize the email to match what's stored in the database
+    const normalizedEmail = normalizeEmail(email);
+    console.log('🔍 Verifying email for:', email, 'normalized:', normalizedEmail, 'with token:', token);
 
-    // Find pending user with matching token and email
+    // Find pending user with matching token and normalized email
     const pendingUser = await db.pendingUser.findFirst({
       where: {
         token: token,
-        email: email,
+        email: normalizedEmail, // Use normalized email for lookup
         expires: {
           gt: new Date(), // Token not expired
         },
@@ -34,7 +37,7 @@ export async function GET(request: Request) {
 
     // Check if user already exists (shouldn't happen, but just in case)
     const existingUser = await db.user.findUnique({
-      where: { email: email }
+      where: { email: normalizedEmail } // Use normalized email for lookup
     });
 
     if (existingUser) {

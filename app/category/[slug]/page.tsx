@@ -86,15 +86,6 @@ export default function CategoryPage({ params }: { params: { slug: string } | Pr
     }
   };
 
-  // Add view transition for smoother page changes
-  useEffect(() => {
-    document.documentElement.style.scrollBehavior = "smooth";
-    window.scrollTo({ top: 0 });
-    return () => {
-      document.documentElement.style.scrollBehavior = "auto";
-    };
-  }, []);
-
   return (
     <motion.main
       initial={{ opacity: 0 }}

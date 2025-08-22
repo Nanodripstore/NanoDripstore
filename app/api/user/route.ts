@@ -3,6 +3,7 @@ import { hash } from "bcryptjs";
 import * as z from "zod";
 import { sendVerificationEmail } from "@/lib/email";
 import { randomUUID } from "crypto";
+import { normalizeEmail } from "@/lib/utils";
 
 //Define a schema for input validation
 const userSchema = z
@@ -23,22 +24,30 @@ export async function POST(req: Request) {
     const { email, username, password } = userSchema.parse(body);
     console.log('✅ Schema validation passed');
 
-    //check if email already exists in users table
+    // Normalize the email to prevent duplicate accounts (especially for Gmail)
+    const normalizedEmail = normalizeEmail(email);
+    console.log('🔄 Email normalized:', { original: email, normalized: normalizedEmail });
+
+    //check if email already exists in users table (using normalized email)
     const existingUserByEmail = await db.user.findUnique({
-      where: { email: email }
+      where: { email: normalizedEmail }
     });
     if (existingUserByEmail) {
-      return Response.json({ user: null, message: "User with this email already exists" }, { status: 409 });
+      return Response.json({ 
+        user: null, 
+        message: "An account with this email address already exists. Please use a different email or try signing in.",
+        field: "email"
+      }, { status: 409 });
     }
 
-    //check if email already exists in pending users table
+    //check if email already exists in pending users table (using normalized email)
     const existingPendingUserByEmail = await db.pendingUser.findUnique({
-      where: { email: email }
+      where: { email: normalizedEmail }
     });
     if (existingPendingUserByEmail) {
       // Delete the old pending registration and create a new one
       await db.pendingUser.delete({
-        where: { email: email }
+        where: { email: normalizedEmail }
       });
     }
 
@@ -47,7 +56,11 @@ export async function POST(req: Request) {
       where: { name: username }
     });
     if (existingUserByUsername) {
-      return Response.json({ user: null, message: "User with this username already exists" }, { status: 409 });
+      return Response.json({ 
+        user: null, 
+        message: "This username is already taken. Please choose a different username.",
+        field: "username"
+      }, { status: 409 });
     }
 
     //check if username already exists in pending users table
@@ -55,7 +68,11 @@ export async function POST(req: Request) {
       where: { name: username }
     });
     if (existingPendingUserByUsername) {
-      return Response.json({ user: null, message: "User with this username already exists" }, { status: 409 });
+      return Response.json({ 
+        user: null, 
+        message: "This username is already taken. Please choose a different username.",
+        field: "username"
+      }, { status: 409 });
     }
 
     const hashedPassword = await hash(password, 10);
@@ -67,7 +84,7 @@ export async function POST(req: Request) {
     // Store user data in pending users table (not in main users table yet)
     const pendingUser = await db.pendingUser.create({
       data: {
-        email,
+        email: normalizedEmail, // Use normalized email for storage
         name: username,
         password: hashedPassword,
         token: verificationToken,
@@ -75,10 +92,10 @@ export async function POST(req: Request) {
       },
     });
 
-    // Create verification URL
-    const verificationUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
+    // Create verification URL (use original email for display purposes)
+    const verificationUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}&email=${encodeURIComponent(normalizedEmail)}`;
 
-    // Send verification email
+    // Send verification email to the original email address (where user will actually receive it)
     console.log('📧 Sending verification email to:', email);
     try {
       await sendVerificationEmail(email, verificationUrl);

@@ -175,11 +175,6 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
     setCurrentImageIndex(0);
   }, [product, selectedVariant]);
 
-  // Smooth scroll to top on load
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, []);
-
   // Fetch wishlist when component mounts
   useEffect(() => {
     if (session) {

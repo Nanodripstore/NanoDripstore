@@ -471,7 +471,7 @@ export default function ShopProducts() {
                     <div className="flex items-center gap-1 sm:gap-2 mb-2 sm:mb-3">
                       <span className="text-xs text-muted-foreground hidden sm:block">Colors:</span>
                       <span className="text-xs text-muted-foreground sm:hidden">Colors:</span>
-                      <div className="flex gap-1 sm:gap-1.5">
+                      <div className="flex gap-1 sm:gap-1.5" style={{ isolation: 'isolate' }}>
                         {(() => {
                           // Use variants if available, otherwise fall back to old color system
                           const colors = product.variants && product.variants.length > 0
@@ -504,13 +504,12 @@ export default function ShopProducts() {
                                 return (
                                   <div
                                     key={colorIndex}
-                                    className={`group relative w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 rounded-full border-2 shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer ring-1 ring-gray-200/50 ${
+                                    className={`group relative w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 rounded-full border-2 shadow-md transition-all duration-300 cursor-pointer ${
                                       isSelected 
-                                        ? 'border-primary ring-2 ring-primary/50 scale-110 shadow-primary/30' 
-                                        : 'border-white hover:border-primary/30 hover:ring-2 hover:ring-primary/30 hover:scale-110'
+                                        ? 'border-primary scale-110 shadow-primary/30 ring-2 ring-primary/30' 
+                                        : 'border-white hover:border-primary/30 hover:ring-2 hover:ring-primary/30 hover:scale-110 hover:shadow-xl'
                                     }`}
                                     style={{ backgroundColor: color.value || '#cccccc' }}
-                                    title={color.name || 'Color'}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setSelectedColors(prev => ({
@@ -519,16 +518,16 @@ export default function ShopProducts() {
                                       }));
                                     }}
                                   >
-                                    {/* Selection indicator */}
+                                    {/* Selection indicator - improved */}
                                     {isSelected && (
-                                      <div className="absolute inset-0 rounded-full border-2 border-primary animate-pulse" />
+                                      <div className="absolute inset-1 rounded-full border border-white/60" />
                                     )}
                                     
                                     {/* Inner glow effect on hover */}
-                                    <div className="absolute inset-0 rounded-full bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                    <div className="absolute inset-0 rounded-full bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                                     
-                                    {/* Tooltip */}
-                                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/90 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap z-20 font-medium">
+                                    {/* Tooltip - shows only when hovering over the color circle */}
+                                    <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-black/90 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-30 font-medium">
                                       {color.name || 'Color'}
                                       <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-2 border-transparent border-t-black/90"></div>
                                     </div>
@@ -536,17 +535,11 @@ export default function ShopProducts() {
                                 );
                               })}
                               {remainingCount > 0 && (
-                                <div className="group relative w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 rounded-full bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-white shadow-md hover:shadow-xl hover:scale-110 transition-all duration-300 cursor-pointer ring-1 ring-gray-200/50 hover:ring-2 hover:ring-primary/30 flex items-center justify-center hover:from-primary/10 hover:to-primary/20">
-                                  <span className="text-xs font-medium text-gray-600 group-hover:text-primary transition-colors duration-300">+{remainingCount}</span>
+                                <div className="relative w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 rounded-full bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-white shadow-md transition-all duration-300 cursor-pointer flex items-center justify-center hover:shadow-xl hover:scale-110 hover:ring-2 hover:ring-primary/30 hover:from-primary/10 hover:to-primary/20">
+                                  <span className="text-xs font-medium text-gray-600 hover:text-primary transition-colors duration-300 pointer-events-none">+{remainingCount}</span>
                                   
                                   {/* Inner glow effect on hover */}
-                                  <div className="absolute inset-0 rounded-full bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                                  
-                                  {/* Tooltip */}
-                                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/90 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap z-20 font-medium">
-                                    {remainingCount} more color{remainingCount > 1 ? 's' : ''}
-                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-2 border-transparent border-t-black/90"></div>
-                                  </div>
+                                  <div className="absolute inset-0 rounded-full bg-primary/10 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                                 </div>
                               )}
                             </>
@@ -625,13 +618,41 @@ export default function ShopProducts() {
                             return;
                           }
                           
-                          if (!product.sku) {
+                          // Get the selected variant or default to first variant
+                          let selectedColor = selectedColors[product.id];
+                          
+                          // If no variant is selected but product has variants, use the first variant as default
+                          if (!selectedColor && product.variants && product.variants.length > 0) {
+                            const firstVariant = product.variants[0];
+                            selectedColor = {
+                              name: firstVariant.colorName,
+                              value: firstVariant.colorValue,
+                              variant: firstVariant,
+                              image: firstVariant.images?.[0] || firstVariant.image || product.images[0]
+                            };
+                          }
+                          
+                          let orderSku = product.sku;
+                          let orderName = product.name;
+                          let orderImage = product.images[0] || '';
+                          let variantInfo = '';
+                          
+                          // If a variant is selected or defaulted, use its information
+                          if (selectedColor?.variant) {
+                            orderSku = selectedColor.variant.sku || orderSku;
+                            orderName = `${product.name} - ${selectedColor.name || selectedColor.variant.colorName || selectedColor.variant.name || 'Variant'}`;
+                            // Priority: variant.images[0] > variant.image > selectedColor.image > product.images[0]
+                            orderImage = selectedColor.variant.images?.[0] || selectedColor.variant.image || selectedColor.image || orderImage;
+                            variantInfo = `&variant=${encodeURIComponent(selectedColor.name || selectedColor.variant.colorName || selectedColor.variant.name || 'Variant')}`;
+                          }
+                          
+                          if (!orderSku) {
                             toast.error('Product not available for direct order');
                             return;
                           }
                           
-                          // Navigate to checkout with product details
-                          const checkoutUrl = `/checkout?product=${product.id}&name=${encodeURIComponent(product.name)}&price=${product.price}&sku=${product.sku}&image=${encodeURIComponent(product.images[0] || '')}`;
+                          // Navigate to checkout with product/variant details
+                          const checkoutUrl = `/checkout?product=${product.id}&name=${encodeURIComponent(orderName)}&price=${product.price}&sku=${orderSku}&image=${encodeURIComponent(orderImage)}${variantInfo}`;
                           router.push(checkoutUrl);
                         }}
                         className="flex-1 text-xs sm:text-sm py-2 sm:py-3 hover:scale-105 transition-all duration-200"

@@ -19,13 +19,15 @@ Add these environment variables to your production environment (Netlify/Vercel/e
 
 ```bash
 # Google Sheets API Configuration
-GOOGLE_SHEETS_PROJECT_ID="nanodrip-store"
-GOOGLE_SHEETS_PRIVATE_KEY_ID="266b1592eb3e1fc7e29c587c6c0ab43bc02dbc1d"
-GOOGLE_SHEETS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDXd8mxuCFBAvH5\n7nrXX3VgzK0bHhJdEfHqkpxN/hyFK9OGqEZ5gtAxQ+pO5kHYmcHqM1z/q+cXAYGI\nb90n6VmYjVg9fiHUI4YOTh5F9dk+c59YHI5sIJ6ggdaI7aHjWiGzNoyXsbyy3+8c\n0zEuqGTyq8MroIPcFoZuM5Ths3saftPNyZX0J21oOaRegYinthPps0uMydRsVQmp\nYCzU7KaMdDpzHM1hV4l07A3tBonsBN10A7xyvRl3KLgXDGIqViMmKqQLv7YzI8gF\nwnWP9Hw9ir+KKfP+wCKAQY2wXCHAVMHyVgDdnBfJ93/Qnxpk2MDTl27EexM9T/G3\nquUnw4GXAgMBAAECggEAFjkNR759SjPq5SOK7pUH3tioBKNQsuIGQ3Kk8F5ZxAUb\nJ0j1ISneyICqtUHbtLgBtLgLdXXeEGoKrsRq2OehDVzhUaZQCDiJu7FO6gRLSGer\nHZlZuck7fcPRGVpOV3aVAeOJvfOKSiCn4XSJdA3Q1j6Pk1EA3ehCK9ziFCKWJcs9\nINsnZG2TpmdFB//VHsbc02GkHWxK2wWnQv4iEv9BLfYfQaDA+P1KA4P6+ytTV1K8\nAZ06LLhO7HEtqHu93caduaIMjWsAxaqVwOPo59hJy32aX9MkyhoS5G/XQcZm1jTT\ngq6u5A8DkMMJZszRTq/Ll9yW/RP6sQJaM4LmLzhsQQKBgQDtJXyQS7hwNJIg2dVA\nM8AbVObmEWHsl4af+OpVbXy2cCVWttnh5hFlXU9BVTn0/zc/vGmDy0lOdP5Vy/gu\nn0ogBqDNSEpL5oKP6WlwOKDzxrrdBewQ71q68NsifxEZf0wASYKEpIu0EFasxor9\nGER3k/qwnRREPLjzc1Ezy+3IMQKBgQDomRcbIq2NoITEaSThafAG/Txrk8fxP/gd\nDyrJPz2vhynNmfkLLcZXxZQetbUoE7v+DehMoMsklsCWMV90mlrVVlZf1eHNWejs\nVT8fgidpUK79jgGRqRrU624oEeVupB/LWTVkVZ/Rfb1s41Agmaxc9KqMDBIbV9yI\nowsHQF28RwKBgBnolotNOoFHvQ9JvTqebMaPqApKq+AlTdf8Yd2jcJSd+/ZVU8iS\nUiQ45YfFv+c8WtTjyMNVWlTwAzlsZ1jwnjCRiM/krflM3cbLQXG5PhxkAdZT506S\nV99EoSxLpZqbhboiTdggAgNSJaYKqvSryg8mY6UYBDbQS4SNfLmj9f6BAoGBAODz\nHguaUCsGsSCbZ5WxtPetdf+8nsRNT5IbFxAm32ug1ucHIHqVPJuqdAP3TEqEO24K\n2T0yzQSH353iBiVpGqv0ofhxi73kVIYsM64vXBpYc8S4z/+lglOllZWfKTsF89Hg\nZuiwfq5GYyqp9NZyiOYlocNr8R8MrDZhKMtMjtsFAoGAK5OpWRq4E776id5+FJDk\nutI8g+nZyAif3kK+JRMQ3r2Mkcy1fR7nryxXUTveXsyTpVUv4cR/pvQ/4Ax4Ov1J\n3qBo4kDIlfQoOx6lzACHYFG0NpP3h8TjDQQaski/LD85HmOguoR4Jg93M9nzSvaa\nGUvVxxVLjWwLvCUBGEE/A+4=\n-----END PRIVATE KEY-----\n"
-GOOGLE_SHEETS_CLIENT_EMAIL="sheet-reader-2025@nanodrip-store.iam.gserviceaccount.com"
-GOOGLE_SHEETS_CLIENT_ID="111104283473602447170"
-LIVE_SHEET_ID="1e3edGQvk3rvrMs8HtofRWlsDrE2XHISyyFykF7jMz8g"
+GOOGLE_SHEETS_PROJECT_ID="your-project-id"
+GOOGLE_SHEETS_PRIVATE_KEY_ID="your-private-key-id"
+GOOGLE_SHEETS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nyour-private-key-content\n-----END PRIVATE KEY-----\n"
+GOOGLE_SHEETS_CLIENT_EMAIL="your-service-account@your-project.iam.gserviceaccount.com"
+GOOGLE_SHEETS_CLIENT_ID="your-client-id"
+LIVE_SHEET_ID="your-google-sheet-id"
 ```
+
+> **Note:** Replace the placeholder values with your actual Google Sheets API credentials. You can find these values in your local `.env.local` file.
 
 ### **Issue 2: Private Key Format Error**
 
@@ -49,7 +51,7 @@ GOOGLE_SHEETS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0B
 **Solution:**
 1. **Open your Google Sheet**
 2. **Click "Share" button**
-3. **Add the service account email:** `sheet-reader-2025@nanodrip-store.iam.gserviceaccount.com`
+3. **Add the service account email:** `your-service-account@your-project.iam.gserviceaccount.com`
 4. **Set permission to "Viewer"**
 5. **Click "Send"**
 

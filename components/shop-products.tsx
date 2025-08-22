@@ -67,6 +67,7 @@ export default function ShopProducts() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortOption, setSortOption] = useState('createdAt:desc');
   const [refreshProducts, setRefreshProducts] = useState(process.env.NODE_ENV === 'production'); // Always true in production
+  const [selectedColors, setSelectedColors] = useState<{ [productId: number]: any }>({});
   
   // Force refresh on component mount (page reload) - more aggressive in production
   useEffect(() => {
@@ -107,7 +108,7 @@ export default function ShopProducts() {
 
   // Force recompilation with a comment change - updated
 
-  const handleAddToCart = (product: any) => {
+  const handleAddToCart = (product: any, selectedVariant?: any) => {
     if (!session?.user) {
       toast.error('Please sign in to add items to cart', {
         description: 'You need to be logged in to use the shopping cart',
@@ -119,34 +120,62 @@ export default function ShopProducts() {
       return;
     }
     
-    // Parse JSON colors if it's a string
-    let colors = [];
-    try {
-      colors = typeof product.colors === 'string' 
-        ? JSON.parse(product.colors || '[]') 
-        : product.colors || [];
-    } catch (error) {
-      console.error('Error parsing product colors for cart:', error);
-      colors = [];
+    // Get selected color or use default
+    const selectedColor = selectedColors[product.id];
+    let colorName = 'Default';
+    let productImage = Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : '/placeholder.jpg';
+    
+    // Use variant info if available
+    if (selectedVariant) {
+      colorName = selectedVariant.colorName || 'Default';
+      if (selectedVariant.images && selectedVariant.images.length > 0) {
+        productImage = selectedVariant.images[0];
+      }
+    } else if (selectedColor) {
+      colorName = selectedColor.name || 'Default';
+      // If variant has images, use those
+      if (selectedColor.variant?.images && selectedColor.variant.images.length > 0) {
+        productImage = selectedColor.variant.images[0];
+      }
+      // Otherwise try to find matching image by color index
+      else if (Array.isArray(product.images) && product.images.length > 1) {
+        const colors = product.variants && product.variants.length > 0
+          ? product.variants.map((variant: any) => ({ name: variant.colorName, value: variant.colorValue, variant: variant }))
+          : typeof product.colors === 'string' ? JSON.parse(product.colors || '[]') : product.colors || [];
+        
+        const colorIndex = colors.findIndex((color: any) => color.name === selectedColor.name);
+        if (colorIndex >= 0 && colorIndex < product.images.length) {
+          productImage = product.images[colorIndex];
+        }
+      }
+    } else {
+      // Parse JSON colors if it's a string for default
+      let colors = [];
+      try {
+        colors = typeof product.colors === 'string' 
+          ? JSON.parse(product.colors || '[]') 
+          : product.colors || [];
+      } catch (error) {
+        console.error('Error parsing product colors for cart:', error);
+        colors = [];
+      }
+      colorName = colors[0]?.name || 'Default';
     }
     
-    const defaultColor = colors[0]?.name || 'Default';
     const defaultSize = product.sizes?.[0] || 'M'; // Default to first size or M
     
     addItem({
       id: product.id,
       name: product.name,
       price: product.price,
-      color: defaultColor,
+      color: colorName,
       size: defaultSize,
-      image: Array.isArray(product.images) && product.images.length > 0 
-        ? product.images[0] 
-        : '/placeholder.jpg',
+      image: productImage,
       type: product.type
     });
     
     toast.success(`Added ${product.name} to cart!`, {
-      description: `Color: ${defaultColor} • Size: ${defaultSize} • Price: $${product.price}`,
+      description: `Color: ${colorName} • Size: ${defaultSize} • Price: $${product.price}`,
     });
   };
 
@@ -364,17 +393,41 @@ export default function ShopProducts() {
                       className="relative w-full h-full cursor-pointer"
                       onClick={() => handleQuickView(product)}
                     >
-                      {Array.isArray(product.images) && product.images.length > 0 ? (
-                        <OptimizedImage
-                          src={product.images[0]}
-                          alt={product.name}
-                          className="w-full h-full transition-transform duration-300 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-muted">
-                          <span className="text-muted-foreground">No image</span>
-                        </div>
-                      )}
+                      {(() => {
+                        // Get selected color or default to first variant/color
+                        const selectedColor = selectedColors[product.id];
+                        let imageToShow = product.images[0]; // Default image
+                        
+                        // If we have a selected color with variant and it has images, use those
+                        if (selectedColor?.variant?.images && selectedColor.variant.images.length > 0) {
+                          imageToShow = selectedColor.variant.images[0];
+                        }
+                        // If no variant images but we have a selected color, try to find matching image
+                        else if (selectedColor && Array.isArray(product.images) && product.images.length > 1) {
+                          // Try to find image index based on color selection
+                          const colors = product.variants && product.variants.length > 0
+                            ? product.variants.map((variant: any) => ({ name: variant.colorName, value: variant.colorValue, variant: variant }))
+                            : typeof product.colors === 'string' ? JSON.parse(product.colors || '[]') : product.colors || [];
+                          
+                          const colorIndex = colors.findIndex((color: any) => color.name === selectedColor.name);
+                          if (colorIndex >= 0 && colorIndex < product.images.length) {
+                            imageToShow = product.images[colorIndex];
+                          }
+                        }
+                        
+                        return Array.isArray(product.images) && product.images.length > 0 ? (
+                          <OptimizedImage
+                            src={imageToShow}
+                            alt={`${product.name} - ${selectedColor?.name || 'Default'}`}
+                            className="w-full h-full transition-all duration-500 group-hover:scale-105"
+                            key={`${product.id}-${selectedColor?.name || 'default'}`} // Key for smooth transitions
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-muted">
+                            <span className="text-muted-foreground">No image</span>
+                          </div>
+                        );
+                      })()}
                       
                       {/* Hover Overlay */}
                       <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
@@ -437,31 +490,62 @@ export default function ShopProducts() {
                             );
                           }
                           
+                          const selectedColor = selectedColors[product.id];
                           const maxColors = 3;
                           const visibleColors = colors.slice(0, maxColors);
                           const remainingCount = Math.max(0, colors.length - maxColors);
                           
                           return (
                             <>
-                              {visibleColors.map((color: any, colorIndex: number) => (
-                                <div
-                                  key={colorIndex}
-                                  className="group relative w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 rounded-full border-2 border-white shadow-md hover:shadow-lg hover:scale-110 transition-all duration-200 cursor-pointer ring-1 ring-gray-200 hover:ring-2 hover:ring-primary/50"
-                                  style={{ backgroundColor: color.value || '#cccccc' }}
-                                  title={color.name || 'Color'}
-                                >
-                                  {/* Tooltip */}
-                                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                                    {color.name || 'Color'}
+                              {visibleColors.map((color: any, colorIndex: number) => {
+                                const isSelected = selectedColor?.name === color.name || 
+                                  (!selectedColor && colorIndex === 0);
+                                
+                                return (
+                                  <div
+                                    key={colorIndex}
+                                    className={`group relative w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 rounded-full border-2 shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer ring-1 ring-gray-200/50 ${
+                                      isSelected 
+                                        ? 'border-primary ring-2 ring-primary/50 scale-110 shadow-primary/30' 
+                                        : 'border-white hover:border-primary/30 hover:ring-2 hover:ring-primary/30 hover:scale-110'
+                                    }`}
+                                    style={{ backgroundColor: color.value || '#cccccc' }}
+                                    title={color.name || 'Color'}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedColors(prev => ({
+                                        ...prev,
+                                        [product.id]: color
+                                      }));
+                                    }}
+                                  >
+                                    {/* Selection indicator */}
+                                    {isSelected && (
+                                      <div className="absolute inset-0 rounded-full border-2 border-primary animate-pulse" />
+                                    )}
+                                    
+                                    {/* Inner glow effect on hover */}
+                                    <div className="absolute inset-0 rounded-full bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                    
+                                    {/* Tooltip */}
+                                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/90 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap z-20 font-medium">
+                                      {color.name || 'Color'}
+                                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-2 border-transparent border-t-black/90"></div>
+                                    </div>
                                   </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                               {remainingCount > 0 && (
-                                <div className="group relative w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 rounded-full bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-white shadow-md hover:shadow-lg hover:scale-110 transition-all duration-200 cursor-pointer ring-1 ring-gray-200 hover:ring-2 hover:ring-primary/50 flex items-center justify-center">
-                                  <span className="text-xs font-medium text-gray-600">+{remainingCount}</span>
+                                <div className="group relative w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 rounded-full bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-white shadow-md hover:shadow-xl hover:scale-110 transition-all duration-300 cursor-pointer ring-1 ring-gray-200/50 hover:ring-2 hover:ring-primary/30 flex items-center justify-center hover:from-primary/10 hover:to-primary/20">
+                                  <span className="text-xs font-medium text-gray-600 group-hover:text-primary transition-colors duration-300">+{remainingCount}</span>
+                                  
+                                  {/* Inner glow effect on hover */}
+                                  <div className="absolute inset-0 rounded-full bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                  
                                   {/* Tooltip */}
-                                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/90 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap z-20 font-medium">
                                     {remainingCount} more color{remainingCount > 1 ? 's' : ''}
+                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-2 border-transparent border-t-black/90"></div>
                                   </div>
                                 </div>
                               )}
@@ -509,7 +593,8 @@ export default function ShopProducts() {
                           `;
                           
                           // Call actual handler
-                          handleAddToCart(product);
+                          const selectedColor = selectedColors[product.id];
+                          handleAddToCart(product, selectedColor?.variant);
                           
                           // Restore button after animation
                           setTimeout(() => {

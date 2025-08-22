@@ -144,10 +144,10 @@ export function useProductsFromSheet({
 
       return response.json();
     },
-    staleTime: 30 * 1000, // 30 seconds (very short for real-time updates)
-    gcTime: 1 * 60 * 1000, // 1 minute
+    staleTime: process.env.NODE_ENV === 'production' ? 0 : 30 * 1000, // No cache in production, 30 seconds in dev
+    gcTime: process.env.NODE_ENV === 'production' ? 0 : 1 * 60 * 1000, // No cache in production, 1 minute in dev
     refetchOnWindowFocus: true, // Enable refetch on focus
-    refetchInterval: refresh ? false : 1 * 60 * 1000, // Auto-refetch every 1 minute
+    refetchInterval: process.env.NODE_ENV === 'production' ? 30 * 1000 : (refresh ? false : 1 * 60 * 1000), // 30s in production, 1 minute in dev
     retry: 1
   });
 }
@@ -172,10 +172,10 @@ export function useProductFromSheet(slug: string | null, refresh: boolean = fals
       return response.json();
     },
     enabled: !!slug, // Only run the query if slug is provided
-    staleTime: 30 * 1000, // 30 seconds (very short for real-time updates)
-    gcTime: 1 * 60 * 1000, // 1 minute
+    staleTime: process.env.NODE_ENV === 'production' ? 0 : 30 * 1000, // No cache in production, 30 seconds in dev
+    gcTime: process.env.NODE_ENV === 'production' ? 0 : 1 * 60 * 1000, // No cache in production, 1 minute in dev
     refetchOnWindowFocus: true, // Enable refetch on focus
-    refetchInterval: refresh ? false : 1 * 60 * 1000, // Auto-refetch every 1 minute
+    refetchInterval: process.env.NODE_ENV === 'production' ? 30 * 1000 : (refresh ? false : 1 * 60 * 1000), // 30s in production, 1 minute in dev
     retry: 1
   });
 }

@@ -25,7 +25,7 @@ interface CacheEntry {
 
 class SheetCache {
   private cache: Map<string, CacheEntry> = new Map();
-  private defaultTTL = 1 * 60 * 1000; // 1 minute for real-time updates
+  private defaultTTL = process.env.NODE_ENV === 'production' ? 30 * 1000 : 1 * 60 * 1000; // 30 seconds in production, 1 minute in dev
 
   set(key: string, data: any, ttl?: number): void {
     this.cache.set(key, {

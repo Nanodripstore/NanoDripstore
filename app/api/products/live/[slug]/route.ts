@@ -9,6 +9,10 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const refresh = searchParams.get('refresh') === 'true'; // Cache busting parameter
     const timestamp = searchParams.get('t'); // Timestamp for page reloads
+    const isProduction = process.env.NODE_ENV === 'production';
+    
+    // In production, be more aggressive about cache clearing
+    const shouldClearCache = refresh || timestamp || (isProduction && Math.random() < 0.3); // 30% chance in production
 
     if (!slug) {
       return Response.json(
@@ -43,9 +47,9 @@ export async function GET(
     const syncService = new LiveSheetSyncService();
     
     // Clear cache if refresh is requested or timestamp indicates fresh page load
-    if (refresh || timestamp) {
+    if (shouldClearCache) {
       syncService.clearCache();
-      console.log('Cache cleared due to refresh parameter or page reload for product slug');
+      console.log('Cache cleared due to refresh parameter, page reload, or production randomization for product slug');
     }
     
     // Fetch single product by slug from Google Sheet
@@ -59,8 +63,15 @@ export async function GET(
     }
 
     return Response.json(product, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120', // 1 minute cache, 2 minutes stale
+      headers: isProduction ? {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'X-Accel-Expires': '0',
+        'Surrogate-Control': 'no-store',
+        'CDN-Cache-Control': 'no-store'
+      } : {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120', // 1 minute cache, 2 minutes stale in dev
       }
     });
 

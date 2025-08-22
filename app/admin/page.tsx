@@ -13,7 +13,8 @@ import {
   Users, 
   BarChart3,
   Settings,
-  Database
+  Database,
+  Bug
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -25,6 +26,14 @@ export default function AdminDashboard() {
       href: '/admin/sync',
       color: 'text-cyan-600',
       bgColor: 'bg-cyan-50'
+    },
+    {
+      title: 'Sheet Diagnostic',
+      description: 'Debug Google Sheets connection issues',
+      icon: Bug,
+      href: '/admin/debug',
+      color: 'text-red-600',
+      bgColor: 'bg-red-50'
     },
     {
       title: 'Import Products',

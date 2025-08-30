@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { cn } from '@/lib/utils';
+import { cn, getDriveDirectLink } from '@/lib/utils';
 
 interface SimpleProxiedImageProps {
   src: string;
@@ -35,26 +35,26 @@ export function SimpleProxiedImage({
     );
   }
 
-  // Use direct URLs - no proxy needed for Google Drive direct access URLs
-  const imageSrc = src;
+  // Use proxied Google Drive URLs to avoid CORS issues
+  const imageSrc = getDriveDirectLink(src);
 
-  console.log('SimpleDirectImage:', { 
+  console.log('ProxiedDriveImage:', { 
     original: src, 
-    direct: imageSrc,
+    proxied: imageSrc,
     alt 
   });
 
   const handleLoad = () => {
     setIsLoading(false);
     onLoad?.();
-    console.log('Direct image loaded successfully:', imageSrc);
+    console.log('Proxied drive image loaded successfully:', imageSrc);
   };
 
   const handleError = (e: any) => {
     setIsLoading(false);
     setHasError(true);
     onError?.();
-    console.error('Direct image failed to load:', imageSrc, e);
+    console.error('Proxied drive image failed to load:', imageSrc, e);
   };
 
   // Fallback image for errors

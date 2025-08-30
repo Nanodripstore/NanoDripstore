@@ -2,6 +2,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const imageUrl = searchParams.get('url');
+    const cacheBuster = searchParams.get('cb'); // Cache busting parameter
 
     if (!imageUrl) {
       return new Response('Missing url parameter', { status: 400 });
@@ -12,23 +13,27 @@ export async function GET(request: Request) {
       return new Response('Only Google Drive URLs are supported', { status: 400 });
     }
 
-    console.log('Proxying image URL:', imageUrl);
+    console.log('Proxying image URL:', imageUrl, 'Cache buster:', cacheBuster);
 
-    // Fetch the image from Google Drive
+    // Fetch the image from Google Drive with better headers
     const response = await fetch(imageUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Referer': 'https://drive.google.com/',
-        'Accept': 'image/*,*/*',
+        'Accept': 'image/webp,image/avif,image/apng,image/svg+xml,image/*,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
         'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Sec-Fetch-Dest': 'image',
+        'Sec-Fetch-Mode': 'no-cors',
+        'Sec-Fetch-Site': 'cross-site',
       },
       // Add timeout
-      signal: AbortSignal.timeout(10000), // 10 second timeout
+      signal: AbortSignal.timeout(15000), // 15 second timeout
     });
 
     if (!response.ok) {
-      console.error('Failed to fetch image:', response.status, response.statusText);
+      console.error('Failed to fetch image:', response.status, response.statusText, 'URL:', imageUrl);
       return new Response(`Failed to fetch image: ${response.statusText}`, { 
         status: response.status 
       });
@@ -38,17 +43,20 @@ export async function GET(request: Request) {
     const imageBuffer = await response.arrayBuffer();
     const contentType = response.headers.get('content-type') || 'image/jpeg';
 
-    // Return the image with proper headers
+    console.log('Successfully proxied image:', imageUrl, 'Type:', contentType, 'Size:', imageBuffer.byteLength);
+
+    // Return the image with headers that prevent caching based on URL
+    const etag = `"${cacheBuster || 'default'}-${imageBuffer.byteLength}"`;
+    
     return new Response(imageBuffer, {
       headers: {
         'Content-Type': contentType,
-        'Cache-Control': process.env.NODE_ENV === 'production' 
-          ? 'public, max-age=300, must-revalidate' // 5 minutes cache with revalidation in production
-          : 'public, max-age=3600', // 1 hour cache in development
+        'Cache-Control': 'public, max-age=300, must-revalidate', // 5 minutes with revalidation
+        'ETag': etag, // Unique ETag based on cache buster and content
+        'Vary': 'Accept, User-Agent, cb', // Vary by cache buster parameter
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET',
         'Access-Control-Allow-Headers': 'Content-Type',
-        'Vary': 'Accept, User-Agent',
       },
     });
 

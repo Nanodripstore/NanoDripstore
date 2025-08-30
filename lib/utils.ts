@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
- 
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
@@ -65,38 +65,95 @@ export function normalizeEmail(email: string): string {
 }
 
 /**
- * Converts Google Drive sharing URLs to direct access URLs for image display
- * Handles multiple Google Drive URL formats with comprehensive pattern matching
+ * Converts Google Drive sharing URLs to proxied URLs that avoid CORS issues
+ * Uses a local Next.js API route to proxy the images server-side
  */
 export function convertGoogleDriveUrl(url: string): string {
   if (!url) return '';
   
   try {
-    // If it's already in the correct format, return as-is
-    if (url.includes('drive.google.com/uc?export=view&id=')) {
+    // If it's not a Google Drive URL, return as-is
+    if (!url.includes('drive.google.com')) {
       return url;
     }
 
-    // Handle different Google Drive link formats
-    const patterns = [
-      /https:\/\/drive\.google\.com\/file\/d\/([^/?]+)/,        // file/d/FILE_ID/view or file/d/FILE_ID
-      /https:\/\/drive\.google\.com\/open\?id=([^&]+)/,         // open?id=FILE_ID
-      /https:\/\/drive\.google\.com\/uc\?id=([^&]+)/,           // uc?id=FILE_ID
-      /https:\/\/drive\.google\.com\/thumbnail\?id=([^&]+)/,    // thumbnail?id=FILE_ID
-      /[?&]id=([a-zA-Z0-9_-]{25,})/,                           // fallback for any URL with id parameter
-    ];
-
-    for (const regex of patterns) {
-      const match = url.match(regex);
-      if (match && match[1]) {
-        return `https://drive.google.com/uc?export=view&id=${match[1]}`;
-      }
+    // If it's already a proxied URL, return as-is
+    if (url.includes('/api/drive-proxy')) {
+      return url;
     }
 
-    // If no known pattern matched, return original URL
-    return url;
+    // Extract the file ID from common Drive links
+    const match = url.match(/[-\w]{25,}/);
+    if (!match) return url; // if no ID found, return original
+
+    const fileId = match[0];
+    
+    // Create different Google Drive URL formats to try
+    const driveUrls = [
+      `https://drive.google.com/uc?export=download&id=${fileId}`,
+      `https://drive.google.com/uc?export=view&id=${fileId}`,
+      `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`
+    ];
+
+    // Use the first URL format with our proxy
+    const driveUrl = driveUrls[0];
+    return `/api/drive-proxy?url=${encodeURIComponent(driveUrl)}`;
   } catch (error) {
     console.warn('Error converting Google Drive URL:', error);
     return url;
+  }
+}
+
+// Alternative function name for compatibility
+export function getDriveDirectLink(url: string): string {
+  return convertGoogleDriveUrl(url);
+}
+
+/**
+ * Alternative Google Drive URL format that might work better for some files
+ * This uses the thumbnail endpoint which can sometimes bypass CORS issues
+ */
+export function getGoogleDriveThumbnailUrl(url: string, size: number = 800): string {
+  if (!url) return '';
+  
+  try {
+    // Extract the file ID from common Drive links
+    const match = url.match(/[-\w]{25,}/);
+    if (!match) return url; // if no ID found, return original
+
+    const fileId = match[0];
+    const thumbnailUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w${size}`;
+    return `/api/drive-proxy?url=${encodeURIComponent(thumbnailUrl)}`;
+  } catch (error) {
+    console.warn('Error creating Google Drive thumbnail URL:', error);
+    return url;
+  }
+}
+
+/**
+ * Get multiple Google Drive URL formats for fallback strategies
+ */
+export function getGoogleDriveUrlVariants(url: string): string[] {
+  if (!url) return [];
+  
+  try {
+    // Extract the file ID from common Drive links
+    const match = url.match(/[-\w]{25,}/);
+    if (!match) return [url]; // if no ID found, return original
+
+    const fileId = match[0];
+    
+    const variants = [
+      `https://drive.google.com/uc?export=download&id=${fileId}`,
+      `https://drive.google.com/uc?export=view&id=${fileId}`,
+      `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`,
+      `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`
+    ];
+
+    // Return proxied versions of all variants
+    return variants.map(variant => `/api/drive-proxy?url=${encodeURIComponent(variant)}`);
+  } catch (error) {
+    console.warn('Error creating Google Drive URL variants:', error);
+    return [url];
   }
 }

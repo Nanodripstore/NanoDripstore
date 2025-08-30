@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useState } from 'react';
-import { cn } from '@/lib/utils';
+import { cn, getDriveDirectLink } from '@/lib/utils';
 
 interface ProxiedImageProps {
   src: string;
@@ -47,8 +47,8 @@ export function ProxiedImage({
     );
   }
 
-  // Use direct URLs - no proxy needed for Google Drive direct access URLs
-  const imageSrc = src;
+  // Use proxied Google Drive URLs to avoid CORS issues
+  const imageSrc = getDriveDirectLink(src);
 
   // Double check that imageSrc is valid
   if (!imageSrc || imageSrc.trim() === '') {
@@ -63,23 +63,23 @@ export function ProxiedImage({
     );
   }
 
-  console.log('DirectImage:', { 
+  console.log('ProxiedDriveImage:', { 
     original: src, 
-    direct: imageSrc,
+    proxied: imageSrc,
     alt 
   });
 
   const handleLoad = () => {
     setIsLoading(false);
     onLoad?.();
-    console.log('Direct image loaded successfully:', imageSrc);
+    console.log('Proxied drive image loaded successfully:', imageSrc);
   };
 
   const handleError = () => {
     setIsLoading(false);
     setHasError(true);
     onError?.();
-    console.error('Direct image failed to load:', imageSrc);
+    console.error('Proxied drive image failed to load:', imageSrc);
   };
 
   // Fallback image for errors
@@ -124,7 +124,7 @@ export function ProxiedImage({
         style={style}
         onLoad={handleLoad}
         onError={handleError}
-        unoptimized={true} // Use unoptimized for Google Drive direct URLs
+        unoptimized={true} // Use unoptimized for direct URLs
       />
     </div>
   );

@@ -104,6 +104,22 @@ class LiveSheetSyncService {
   constructor() {
     this.spreadsheetId = process.env.LIVE_SHEET_ID || '';
     
+    // Validate required environment variables
+    const requiredVars = [
+      'GOOGLE_SHEETS_PROJECT_ID',
+      'GOOGLE_SHEETS_PRIVATE_KEY',
+      'GOOGLE_SHEETS_CLIENT_EMAIL',
+      'LIVE_SHEET_ID'
+    ];
+    
+    const missingVars = requiredVars.filter(varName => !process.env[varName]);
+    if (missingVars.length > 0) {
+      const error = new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
+      console.error('Google Sheets configuration error:', error.message);
+      console.error('Available env vars:', requiredVars.map(v => `${v}: ${process.env[v] ? 'SET' : 'MISSING'}`));
+      throw error;
+    }
+    
     // Simple service account authentication
     try {
       const credentials = {
@@ -119,6 +135,10 @@ class LiveSheetSyncService {
         client_x509_cert_url: `https://www.googleapis.com/robot/v1/metadata/x509/${process.env.GOOGLE_SHEETS_CLIENT_EMAIL}`
       };
 
+      console.log(`Initializing Google Sheets service in ${process.env.NODE_ENV} environment`);
+      console.log(`Sheet ID: ${this.spreadsheetId?.substring(0, 10)}...`);
+      console.log(`Client Email: ${credentials.client_email?.substring(0, 20)}...`);
+
       // Use JWT directly for service account auth
       this.auth = new google.auth.JWT({
         email: credentials.client_email,
@@ -129,10 +149,19 @@ class LiveSheetSyncService {
       this.sheets = google.sheets({ 
         version: 'v4', 
         auth: this.auth,
-        timeout: 10000 // 10 second timeout
+        timeout: process.env.NODE_ENV === 'production' ? 15000 : 10000 // 15 seconds in production
       });
+      
+      console.log('Google Sheets service initialized successfully');
     } catch (error) {
       console.error('Error initializing Google Sheets service:', error);
+      console.error('Environment check:', {
+        NODE_ENV: process.env.NODE_ENV,
+        hasProjectId: !!process.env.GOOGLE_SHEETS_PROJECT_ID,
+        hasPrivateKey: !!process.env.GOOGLE_SHEETS_PRIVATE_KEY,
+        hasClientEmail: !!process.env.GOOGLE_SHEETS_CLIENT_EMAIL,
+        hasSheetId: !!process.env.LIVE_SHEET_ID
+      });
       throw error;
     }
   }
@@ -493,7 +522,8 @@ class LiveSheetSyncService {
       let allProducts = sheetCache.get(cacheKey);
       
       if (!allProducts) {
-        console.log('Cache miss, fetching from Google Sheets...');
+        console.log(`Cache miss for key: ${cacheKey}, fetching from Google Sheets...`);
+        console.log(`Environment: ${process.env.NODE_ENV}, Sheet ID: ${this.spreadsheetId?.substring(0, 10)}...`);
         
         if (!this.spreadsheetId) {
           throw new Error('LIVE_SHEET_ID not configured');
@@ -501,6 +531,7 @@ class LiveSheetSyncService {
 
         // Optimize: Get spreadsheet info only once per instance
         if (!this.cachedSheetName) {
+          console.log('Fetching spreadsheet metadata...');
           const spreadsheetInfo = await this.sheets.spreadsheets.get({
             spreadsheetId: this.spreadsheetId,
           });
@@ -511,9 +542,11 @@ class LiveSheetSyncService {
           }
           
           this.cachedSheetName = firstSheet.properties?.title || 'Sheet1';
+          console.log(`Using sheet: ${this.cachedSheetName}`);
         }
 
         // Read data with optimized range
+        console.log(`Reading data from range: ${this.cachedSheetName}!A2:U1000`);
         const response = await this.sheets.spreadsheets.values.get({
           spreadsheetId: this.spreadsheetId,
           range: `${this.cachedSheetName}!A2:U1000`, // Use cached sheet name
@@ -522,7 +555,10 @@ class LiveSheetSyncService {
         });
 
         const rows = response.data.values;
+        console.log(`Fetched ${rows?.length || 0} rows from Google Sheets`);
+        
         if (!rows || rows.length === 0) {
+          console.log('No data found in sheet, returning empty result');
           return {
             products: [],
             pagination: { total: 0, pages: 0, current: page, hasNext: false, hasPrev: false }
@@ -531,6 +567,7 @@ class LiveSheetSyncService {
 
         // Parse rows efficiently
         const parsedRows: SheetRow[] = [];
+        let parseErrors = 0;
         for (let i = 0; i < rows.length; i++) {
           try {
             const sheetRow = this.parseSheetRow(rows[i]);
@@ -538,22 +575,28 @@ class LiveSheetSyncService {
               parsedRows.push(sheetRow);
             }
           } catch (error) {
-            // Skip invalid rows silently in production
+            parseErrors++;
+            // Skip invalid rows silently in production, log in development
             if (process.env.NODE_ENV !== 'production') {
               console.error(`Error parsing row ${i + 2}:`, error);
             }
           }
         }
 
+        console.log(`Parsed ${parsedRows.length} valid rows (${parseErrors} errors)`);
+
         // Group by product_id and convert to product format
         const productGroups = this.groupRowsByProductOptimized(parsedRows);
         allProducts = this.convertToProductFormat(productGroups);
 
+        console.log(`Converted to ${allProducts.length} products`);
+
         // Cache the processed products with very short TTL for real-time updates
-        sheetCache.set(cacheKey, allProducts, 1 * 60 * 1000); // 1 minute cache for real-time responsiveness
-        console.log(`Cached ${allProducts.length} products for 1 minute`);
+        const cacheTime = process.env.NODE_ENV === 'production' ? 2 * 60 * 1000 : 1 * 60 * 1000; // 2 minutes in production, 1 minute in dev
+        sheetCache.set(cacheKey, allProducts, cacheTime);
+        console.log(`Cached ${allProducts.length} products for ${cacheTime / 1000} seconds`);
       } else {
-        console.log('Cache hit, returning cached products');
+        console.log(`Cache hit for key: ${cacheKey}, returning ${allProducts.length} cached products`);
       }
 
       // Apply filters and sorting on cached data

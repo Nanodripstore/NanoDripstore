@@ -3,6 +3,15 @@ import { authOptions } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { StatusCodes } from 'http-status-codes'
 import LiveSheetSyncService from '@/lib/live-sheet-sync'
+import { convertGoogleDriveUrl } from '@/lib/utils'
+
+// Helper function to process image URLs
+function processImageUrls(urls: (string | null | undefined)[]): string[] {
+  return urls
+    .filter((url): url is string => Boolean(url) && url.trim().length > 0)
+    .map(url => convertGoogleDriveUrl(url.trim()))
+    .filter(Boolean);
+}
 
 export async function GET(req: Request) {
   try {
@@ -76,18 +85,18 @@ export async function GET(req: Request) {
         name: productData.name,
         description: productData.description || '',
         price: productData.base_price || productData.price || 0,
-        images: productData.images || [
+        images: productData.images || processImageUrls([
           productData.image_url_1,
           productData.image_url_2,
           productData.image_url_3,
           productData.image_url_4
-        ].filter(Boolean)
+        ])
       } : {
         id: cartItem.productId,
         name: cartItem.name || 'Unknown Product',
         description: '',
         price: cartItem.price || 0,
-        images: [cartItem.image].filter(Boolean)
+        images: processImageUrls([cartItem.image])
       };
 
       // Select the correct image based on the cart item's color
@@ -306,12 +315,12 @@ export async function POST(req: Request) {
       let productDetails = null
       if (productFromSheet) {
         // Use sheet data for products (primary source)
-        const images = [
+        const images = processImageUrls([
           productFromSheet.image_url_1,
           productFromSheet.image_url_2,
           productFromSheet.image_url_3,
           productFromSheet.image_url_4
-        ].filter(Boolean)
+        ])
         
         productDetails = {
           name: productFromSheet.name,

@@ -23,30 +23,12 @@ export default function ProductShowcase() {
   const { wishlist, addToWishlist, removeFromWishlistByProductId, isInWishlist, fetchWishlist } = useWishlist();
   const [selectedColors, setSelectedColors] = useState<{ [productId: number]: any }>({});
   const [selectedSizes, setSelectedSizes] = useState<{ [productId: number]: string }>({});
-  const [refreshProducts, setRefreshProducts] = useState(process.env.NODE_ENV === 'production'); // Always true in production
   
-  // Force refresh on component mount (page reload) - more aggressive in production
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'production') {
-      setRefreshProducts(true);
-      // In production, stay in refresh mode longer to bust caches
-      const timer = setTimeout(() => setRefreshProducts(Math.random() < 0.8), 10000); // 80% chance to stay in refresh mode for 10 seconds
-      return () => clearTimeout(timer);
-    } else {
-      setRefreshProducts(true);
-      // Reset after a short delay to allow normal caching afterward in dev
-      const timer = setTimeout(() => setRefreshProducts(false), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, []);
-  
-  // Fetch products directly from Google Sheet using optimized hook with aggressive cache busting
+  // Fetch products directly from Google Sheet using optimized hook
   const { data, isLoading, error, refetch } = useProductsFromSheet({
     limit: 6,
     sortBy: 'is_bestseller',
-    sortOrder: 'desc',
-    refresh: true, // Always refresh for debugging
-    cacheBuster: Date.now() // Add timestamp to force cache busting
+    sortOrder: 'desc'
   });
 
   // Custom sorting function: bestseller > new > wishlisted > non-wishlisted
@@ -171,18 +153,12 @@ export default function ProductShowcase() {
     if (product.variants && product.variants.length > 0) {
       const firstVariant = product.variants[0];
       if (firstVariant.images && firstVariant.images.length > 0) {
-        const originalUrl = firstVariant.images[0];
-        const convertedUrl = convertGoogleDriveUrl(originalUrl);
-        console.log(`🔄 URL Conversion for ${product.name}:`, { originalUrl, convertedUrl });
-        return convertedUrl;
+        return convertGoogleDriveUrl(firstVariant.images[0]);
       }
     }
     
     if (Array.isArray(product.images) && product.images.length > 0) {
-      const originalUrl = product.images[0];
-      const convertedUrl = convertGoogleDriveUrl(originalUrl);
-      console.log(`🔄 URL Conversion for ${product.name} (fallback):`, { originalUrl, convertedUrl });
-      return convertedUrl;
+      return convertGoogleDriveUrl(product.images[0]);
     }
     
     return '';
@@ -203,12 +179,6 @@ export default function ProductShowcase() {
     // Get selected color and size from state
     const selectedColor = selectedColors[product.id];
     const selectedSize = selectedSizes[product.id];
-
-    console.log('=== ADD TO CART DEBUG ===');
-    console.log('Original product:', product);
-    console.log('Selected color:', selectedColor);
-    console.log('Selected size:', selectedSize);
-    console.log('Selected variant:', selectedVariant);
 
     // Require color and size selection for products with variants
     if (product.variants && product.variants.length > 0 && !selectedColor) {
@@ -235,8 +205,6 @@ export default function ProductShowcase() {
       variantId = variant.id;
       variantSku = variant.sku;
       variantPrice = variant.price || product.price;
-      
-      console.log('Using variant:', variant);
     } else {
       // Fallback to old color system
       const colors = typeof product.colors === 'string' 
@@ -244,8 +212,6 @@ export default function ProductShowcase() {
         : product.colors || [];
       colorName = selectedColor?.name || colors[0]?.name || 'Default';
       variantPrice = product.price;
-      
-      console.log('Using old color system, colors:', colors);
     }
 
     // Use selected size or fallback to default
@@ -264,9 +230,6 @@ export default function ProductShowcase() {
       variantId: variantId,
       sku: variantSku
     };
-    
-    console.log('Cart item being added:', cartItem);
-    console.log('=== END DEBUG ===');
     
     addItem(cartItem);
     
@@ -434,10 +397,7 @@ export default function ProductShowcase() {
                           if (selectedColor) {
                             // If we have a selected color with variant and it has images, use those
                             if (selectedColor.variant?.images && selectedColor.variant.images.length > 0) {
-                              const originalUrl = selectedColor.variant.images[0];
-                              const convertedUrl = convertGoogleDriveUrl(originalUrl);
-                              console.log(`🎨 Color Image Conversion for ${product.name} (${selectedColor.name}):`, { originalUrl, convertedUrl });
-                              imageToShow = convertedUrl;
+                              imageToShow = convertGoogleDriveUrl(selectedColor.variant.images[0]);
                             }
                             // If no variant images but we have a selected color, try to find matching image
                             else if (Array.isArray(product.images) && product.images.length > 1) {
@@ -449,10 +409,7 @@ export default function ProductShowcase() {
                               const colorIndex = colors.findIndex((color: any) => color.name === selectedColor.name);
                               
                               if (colorIndex >= 0 && colorIndex < product.images.length) {
-                                const originalUrl = product.images[colorIndex];
-                                const convertedUrl = convertGoogleDriveUrl(originalUrl);
-                                console.log(`📸 Indexed Image Conversion for ${product.name}:`, { originalUrl, convertedUrl, colorIndex });
-                                imageToShow = convertedUrl;
+                                imageToShow = convertGoogleDriveUrl(product.images[colorIndex]);
                               } else {
                                 // Fallback to first image if color not found
                                 imageToShow = getDefaultImageForProduct(product);
@@ -574,7 +531,6 @@ export default function ProductShowcase() {
                                       style={{ backgroundColor: color.value || '#cccccc' }}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        console.log('Color clicked:', color.name, 'for product:', product.id);
                                         setSelectedColors(prev => ({
                                           ...prev,
                                           [product.id]: color
@@ -616,7 +572,6 @@ export default function ProductShowcase() {
                                 key={index}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  console.log('Size clicked:', size, 'for product:', product.id);
                                   setSelectedSizes(prev => ({
                                     ...prev,
                                     [product.id]: size

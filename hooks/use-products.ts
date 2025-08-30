@@ -4,11 +4,7 @@ interface ProductVariant {
   id: number;
   productId: number;
   colorName: string;
-  colorV    staleTime: process.env.NODE_ENV === 'production' ? 0 : 5 * 60 * 1000, // Always fresh in production, 5 minutes in dev
-    gcTime: process.env.NODE_ENV === 'production' ? 0 : 1 * 60 * 1000, // No cache in production, 1 minute in dev
-    refetchOnWindowFocus: process.env.NODE_ENV === 'production', // Enable refetch on focus in production only
-    refetchInterval: process.env.NODE_ENV === 'production' ? 30 * 1000 : (refresh ? false : 1 * 60 * 1000), // 30s in production, 1 minute in dev
-    retry: 1 string;
+  colorValue: string;
   sku: string;
   price?: number;
   stockQuantity: number;

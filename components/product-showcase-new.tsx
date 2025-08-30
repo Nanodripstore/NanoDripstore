@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SimpleProxiedImage } from '@/components/simple-proxied-image';
 import { toast } from "sonner";
 
 export default function ProductShowcase() {
@@ -251,7 +252,7 @@ export default function ProductShowcase() {
                         onClick={() => handleQuickView(product)}
                       >
                         {Array.isArray(product.images) && product.images.length > 0 && product.images[0] ? (
-                          <img
+                          <SimpleProxiedImage
                             src={product.images[0]}
                             alt={product.name}
                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"

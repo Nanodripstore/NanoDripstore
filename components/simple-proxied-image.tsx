@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { cn, getDriveDirectLink } from '@/lib/utils';
 
 interface SimpleProxiedImageProps {
@@ -22,6 +22,8 @@ export function SimpleProxiedImage({
 }: SimpleProxiedImageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [currentSrc, setCurrentSrc] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
 
   // Handle empty or invalid src
   if (!src || src.trim() === '') {
@@ -38,23 +40,54 @@ export function SimpleProxiedImage({
   // Use proxied Google Drive URLs to avoid CORS issues
   const imageSrc = getDriveDirectLink(src);
 
+  // Update current src when src prop changes
+  useEffect(() => {
+    setCurrentSrc(imageSrc);
+    setHasError(false);
+    setIsLoading(true);
+    setRetryCount(0);
+  }, [imageSrc]);
+
   console.log('ProxiedDriveImage:', { 
     original: src, 
     proxied: imageSrc,
-    alt 
+    alt,
+    retryCount
   });
 
   const handleLoad = () => {
     setIsLoading(false);
     onLoad?.();
-    console.log('Proxied drive image loaded successfully:', imageSrc);
+    console.log('Proxied drive image loaded successfully:', currentSrc);
   };
 
   const handleError = (e: any) => {
+    console.error('Proxied drive image failed to load:', currentSrc, e);
+    
+    // Try fallback URLs if this is a Google Drive image and we haven't retried too much
+    if (currentSrc.includes('/api/drive-proxy') && retryCount < 2) {
+      const fileIdMatch = currentSrc.match(/id%3D([^%&]+)/);
+      if (fileIdMatch) {
+        const fileId = fileIdMatch[1];
+        const fallbackUrls = [
+          `/api/drive-proxy?url=${encodeURIComponent(`https://drive.google.com/uc?export=view&id=${fileId}`)}`,
+          `/api/drive-proxy?url=${encodeURIComponent(`https://drive.google.com/thumbnail?id=${fileId}&sz=w800`)}`
+        ];
+        
+        if (fallbackUrls[retryCount]) {
+          console.log(`Trying fallback URL ${retryCount + 1}:`, fallbackUrls[retryCount]);
+          setCurrentSrc(fallbackUrls[retryCount]);
+          setRetryCount(retryCount + 1);
+          setIsLoading(true);
+          return; // Don't set error state yet
+        }
+      }
+    }
+    
+    // All retries failed
     setIsLoading(false);
     setHasError(true);
     onError?.();
-    console.error('Proxied drive image failed to load:', imageSrc, e);
   };
 
   // Fallback image for errors
@@ -79,7 +112,7 @@ export function SimpleProxiedImage({
       )}
 
       <img
-        src={imageSrc}
+        src={currentSrc}
         alt={alt}
         className={cn(
           'w-full h-full object-cover transition-opacity duration-300',

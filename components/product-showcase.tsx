@@ -29,8 +29,8 @@ export default function ProductShowcase() {
   useEffect(() => {
     if (process.env.NODE_ENV === 'production') {
       setRefreshProducts(true);
-      // In production, stay in refresh mode longer
-      const timer = setTimeout(() => setRefreshProducts(Math.random() < 0.5), 5000); // 50% chance to stay in refresh mode
+      // In production, stay in refresh mode longer to bust caches
+      const timer = setTimeout(() => setRefreshProducts(Math.random() < 0.8), 10000); // 80% chance to stay in refresh mode for 10 seconds
       return () => clearTimeout(timer);
     } else {
       setRefreshProducts(true);
@@ -40,12 +40,13 @@ export default function ProductShowcase() {
     }
   }, []);
   
-  // Fetch products directly from Google Sheet using optimized hook
+  // Fetch products directly from Google Sheet using optimized hook with aggressive cache busting
   const { data, isLoading, error, refetch } = useProductsFromSheet({
     limit: 6,
     sortBy: 'is_bestseller',
     sortOrder: 'desc',
-    refresh: refreshProducts
+    refresh: true, // Always refresh for debugging
+    cacheBuster: Date.now() // Add timestamp to force cache busting
   });
 
   // Custom sorting function: bestseller > new > wishlisted > non-wishlisted
@@ -170,12 +171,18 @@ export default function ProductShowcase() {
     if (product.variants && product.variants.length > 0) {
       const firstVariant = product.variants[0];
       if (firstVariant.images && firstVariant.images.length > 0) {
-        return convertGoogleDriveUrl(firstVariant.images[0]);
+        const originalUrl = firstVariant.images[0];
+        const convertedUrl = convertGoogleDriveUrl(originalUrl);
+        console.log(`🔄 URL Conversion for ${product.name}:`, { originalUrl, convertedUrl });
+        return convertedUrl;
       }
     }
     
     if (Array.isArray(product.images) && product.images.length > 0) {
-      return convertGoogleDriveUrl(product.images[0]);
+      const originalUrl = product.images[0];
+      const convertedUrl = convertGoogleDriveUrl(originalUrl);
+      console.log(`🔄 URL Conversion for ${product.name} (fallback):`, { originalUrl, convertedUrl });
+      return convertedUrl;
     }
     
     return '';
@@ -427,7 +434,10 @@ export default function ProductShowcase() {
                           if (selectedColor) {
                             // If we have a selected color with variant and it has images, use those
                             if (selectedColor.variant?.images && selectedColor.variant.images.length > 0) {
-                              imageToShow = convertGoogleDriveUrl(selectedColor.variant.images[0]);
+                              const originalUrl = selectedColor.variant.images[0];
+                              const convertedUrl = convertGoogleDriveUrl(originalUrl);
+                              console.log(`🎨 Color Image Conversion for ${product.name} (${selectedColor.name}):`, { originalUrl, convertedUrl });
+                              imageToShow = convertedUrl;
                             }
                             // If no variant images but we have a selected color, try to find matching image
                             else if (Array.isArray(product.images) && product.images.length > 1) {
@@ -439,7 +449,10 @@ export default function ProductShowcase() {
                               const colorIndex = colors.findIndex((color: any) => color.name === selectedColor.name);
                               
                               if (colorIndex >= 0 && colorIndex < product.images.length) {
-                                imageToShow = convertGoogleDriveUrl(product.images[colorIndex]);
+                                const originalUrl = product.images[colorIndex];
+                                const convertedUrl = convertGoogleDriveUrl(originalUrl);
+                                console.log(`📸 Indexed Image Conversion for ${product.name}:`, { originalUrl, convertedUrl, colorIndex });
+                                imageToShow = convertedUrl;
                               } else {
                                 // Fallback to first image if color not found
                                 imageToShow = getDefaultImageForProduct(product);

@@ -251,17 +251,23 @@ export default function ProductShowcase() {
                         className="relative w-full h-full cursor-pointer"
                         onClick={() => handleQuickView(product)}
                       >
-                        {Array.isArray(product.images) && product.images.length > 0 && product.images[0] ? (
-                          <SimpleProxiedImage
-                            src={product.images[0]}
-                            alt={product.name}
-                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-muted">
-                            <span className="text-muted-foreground">No image</span>
-                          </div>
-                        )}
+                        {(() => {
+                          const validImages = Array.isArray(product.images) 
+                            ? product.images.filter((img: string) => img && img.trim().length > 0)
+                            : [];
+                          
+                          return validImages.length > 0 ? (
+                            <SimpleProxiedImage
+                              src={validImages[0]}
+                              alt={product.name}
+                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-muted">
+                              <span className="text-muted-foreground">No image</span>
+                            </div>
+                          );
+                        })()}
                         
                         {/* Hover Overlay */}
                         <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
@@ -380,7 +386,10 @@ export default function ProductShowcase() {
                             }
                             
                             // Navigate to checkout with product details
-                            const checkoutUrl = `/checkout?product=${product.id}&name=${encodeURIComponent(product.name)}&price=${product.price}&sku=${(product as any).sku}&image=${encodeURIComponent(product.images[0] || '')}`;
+                            const imageToUse = (product.images[0] && product.images[0].trim() !== '') 
+                              ? product.images[0] 
+                              : '/placeholder-image.svg';
+                            const checkoutUrl = `/checkout?product=${product.id}&name=${encodeURIComponent(product.name)}&price=${product.price}&sku=${(product as any).sku}&image=${encodeURIComponent(imageToUse)}`;
                             router.push(checkoutUrl);
                           }}
                           className="flex-1 text-xs sm:text-sm py-2 sm:py-3 hover:scale-105 transition-all duration-200"

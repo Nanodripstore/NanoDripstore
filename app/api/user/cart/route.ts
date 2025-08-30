@@ -100,7 +100,9 @@ export async function GET(req: Request) {
       };
 
       // Select the correct image based on the cart item's color
-      let selectedImage = finalProductData.images?.[0] || '';
+      let selectedImage = finalProductData.images?.[0] && finalProductData.images[0].trim() !== '' 
+        ? finalProductData.images[0] 
+        : null;
       
       if (cartItem.color && productData && finalProductData.images.length > 1) {
         // First check if there are variants with specific images

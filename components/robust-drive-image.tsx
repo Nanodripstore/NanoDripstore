@@ -28,6 +28,21 @@ export function RobustDriveImage({
   const [isLoading, setIsLoading] = useState(true);
   const [currentAttempt, setCurrentAttempt] = useState(0);
 
+  // Handle empty or invalid src
+  if (!src || src.trim() === '') {
+    return (
+      <div 
+        className={cn(
+          'bg-gray-200 flex items-center justify-center text-gray-500 text-sm',
+          className
+        )} 
+        style={{ ...style, width, height }}
+      >
+        {alt || 'Image unavailable'}
+      </div>
+    );
+  }
+
   // Get all URL variants for fallback strategies
   const urlVariants = getGoogleDriveUrlVariants(src);
   const maxAttempts = urlVariants.length;

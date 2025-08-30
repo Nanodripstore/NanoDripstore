@@ -723,7 +723,7 @@ class LiveSheetSyncService {
         baseVariant.image_url_2, 
         baseVariant.image_url_3, 
         baseVariant.image_url_4
-      ]);
+      ], baseVariant.color_name || 'default');
       
       // Properly deduplicate colors by color name
       const uniqueColors = variants.reduce((acc: any[], variant) => {
@@ -757,7 +757,7 @@ class LiveSheetSyncService {
           stockQuantity: v.stock_quantity,
           isAvailable: v.is_active && v.stock_quantity > 0,
           size: v.size,
-          images: this.getValidImages([v.image_url_1, v.image_url_2, v.image_url_3, v.image_url_4])
+          images: this.getValidImages([v.image_url_1, v.image_url_2, v.image_url_3, v.image_url_4], v.color_name)
         })),
         sizes: [...new Set(variants.map(v => v.size))],
         colors: uniqueColors,
@@ -769,15 +769,15 @@ class LiveSheetSyncService {
   }
 
   // Optimized image URL validation and processing
-  private getValidImages(urls: string[]): string[] {
+  private getValidImages(urls: string[], colorName?: string): string[] {
     return urls
       .filter(url => url && url.length > 0)
-      .map(url => this.processImageUrl(url))
+      .map(url => this.processImageUrl(url, colorName))
       .filter(url => url !== null) as string[];
   }
 
   // Enhanced image URL processor for Google Drive and other sources
-  private processImageUrl(url: string): string | null {
+  private processImageUrl(url: string, colorName?: string): string | null {
     if (!url || url.trim().length === 0) {
       return null;
     }
@@ -785,7 +785,7 @@ class LiveSheetSyncService {
     const trimmedUrl = url.trim();
 
     // Use the shared utility function to convert Google Drive URLs
-    const convertedUrl = convertGoogleDriveUrl(trimmedUrl);
+    const convertedUrl = convertGoogleDriveUrl(trimmedUrl, colorName);
     
     // If conversion happened (URL changed), return the converted URL
     if (convertedUrl !== trimmedUrl) {

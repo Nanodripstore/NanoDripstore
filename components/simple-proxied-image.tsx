@@ -40,12 +40,27 @@ export function SimpleProxiedImage({
   // Use proxied Google Drive URLs to avoid CORS issues
   const imageSrc = getDriveDirectLink(src);
 
+  // Handle case where conversion returns empty string
+  if (!imageSrc || imageSrc.trim() === '') {
+    return (
+      <div className={cn(
+        'bg-gray-200 flex items-center justify-center text-gray-500 text-sm',
+        className
+      )} style={style}>
+        {alt || 'Image unavailable'}
+      </div>
+    );
+  }
+
   // Update current src when src prop changes
   useEffect(() => {
-    setCurrentSrc(imageSrc);
-    setHasError(false);
-    setIsLoading(true);
-    setRetryCount(0);
+    // Only update if we have a valid imageSrc
+    if (imageSrc && imageSrc.trim() !== '') {
+      setCurrentSrc(imageSrc);
+      setHasError(false);
+      setIsLoading(true);
+      setRetryCount(0);
+    }
   }, [imageSrc]);
 
   console.log('ProxiedDriveImage:', { 
@@ -64,18 +79,20 @@ export function SimpleProxiedImage({
   const handleError = (e: any) => {
     console.error('Proxied drive image failed to load:', currentSrc, e);
     
-    // Try fallback URLs if this is a Google Drive image and we haven't retried too much
-    if (currentSrc.includes('/api/drive-proxy') && retryCount < 2) {
-      const fileIdMatch = currentSrc.match(/id%3D([^%&]+)/);
+    // Try fallback URLs if this is an ImageKit image and we haven't retried too much
+    if (currentSrc.includes('ik.imagekit.io') && retryCount < 3) {
+      // Extract file ID from ImageKit URL
+      const fileIdMatch = currentSrc.match(/nanodripstore\/([a-zA-Z0-9_-]+)/);
       if (fileIdMatch) {
         const fileId = fileIdMatch[1];
         const fallbackUrls = [
-          `/api/drive-proxy?url=${encodeURIComponent(`https://drive.google.com/uc?export=view&id=${fileId}`)}`,
-          `/api/drive-proxy?url=${encodeURIComponent(`https://drive.google.com/thumbnail?id=${fileId}&sz=w800`)}`
+          `https://ik.imagekit.io/nanodripstore/${fileId}?tr=w-600,h-600,c-maintain_aspect_ratio,q-80`, // Smaller size
+          `https://ik.imagekit.io/nanodripstore/${fileId}`, // No transformations
+          `https://drive.google.com/uc?export=view&id=${fileId}` // Direct Google Drive fallback
         ];
         
         if (fallbackUrls[retryCount]) {
-          console.log(`Trying fallback URL ${retryCount + 1}:`, fallbackUrls[retryCount]);
+          console.log(`Trying ImageKit fallback URL ${retryCount + 1}:`, fallbackUrls[retryCount]);
           setCurrentSrc(fallbackUrls[retryCount]);
           setRetryCount(retryCount + 1);
           setIsLoading(true);
@@ -111,18 +128,21 @@ export function SimpleProxiedImage({
         </div>
       )}
 
-      <img
-        src={currentSrc}
-        alt={alt}
-        className={cn(
-          'w-full h-full object-cover transition-opacity duration-300',
-          isLoading ? 'opacity-0' : 'opacity-100'
-        )}
-        onLoad={handleLoad}
-        onError={handleError}
-        crossOrigin="anonymous"
-        referrerPolicy="no-referrer"
-      />
+      {/* Only render img if we have a valid src */}
+      {currentSrc && currentSrc.trim() !== '' && (
+        <img
+          src={currentSrc}
+          alt={alt}
+          className={cn(
+            'w-full h-full object-cover transition-opacity duration-300',
+            isLoading ? 'opacity-0' : 'opacity-100'
+          )}
+          onLoad={handleLoad}
+          onError={handleError}
+          crossOrigin="anonymous"
+          referrerPolicy="no-referrer"
+        />
+      )}
     </div>
   );
 }

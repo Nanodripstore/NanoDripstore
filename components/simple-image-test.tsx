@@ -31,7 +31,7 @@ export function SimpleImageTest({ src, alt }: SimpleImageTestProps) {
       
       {/* Simple img tag test */}
       <img
-        src={src}
+        src={src || '/placeholder-image.svg'}
         alt={alt}
         className="w-full h-full object-cover"
         onLoad={() => {

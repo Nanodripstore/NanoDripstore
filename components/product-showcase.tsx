@@ -207,12 +207,20 @@ export default function ProductShowcase() {
     if (product.variants && product.variants.length > 0) {
       const firstVariant = product.variants[0];
       if (firstVariant.images && firstVariant.images.length > 0) {
-        return convertGoogleDriveUrl(firstVariant.images[0], firstVariant.colorName);
+        // Filter out empty images and get the first valid one
+        const validImages = firstVariant.images.filter((img: string) => img && img.trim().length > 0);
+        if (validImages.length > 0) {
+          return convertGoogleDriveUrl(validImages[0], firstVariant.colorName);
+        }
       }
     }
     
     if (Array.isArray(product.images) && product.images.length > 0) {
-      return convertGoogleDriveUrl(product.images[0], 'default');
+      // Filter out empty images and get the first valid one
+      const validImages = product.images.filter((img: string) => img && img.trim().length > 0);
+      if (validImages.length > 0) {
+        return convertGoogleDriveUrl(validImages[0], 'default');
+      }
     }
     
     return '';
@@ -681,7 +689,9 @@ export default function ProductShowcase() {
                             
                             let orderSku = (product as any).sku;
                             let orderName = product.name;
-                            let orderImage = product.images[0] || '';
+                            let orderImage = (product.images[0] && product.images[0].trim() !== '') 
+                              ? product.images[0] 
+                              : '/placeholder-image.svg';
                             let variantInfo = '';
                             
                             // If a variant is selected or defaulted, use its information

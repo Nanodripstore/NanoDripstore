@@ -593,17 +593,17 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
                   const orderPrice = specificVariant?.price || selectedVariant.price || product.price;
                   
                   // Get the correct image for the selected variant
-                  let orderImage = '';
-                  if (specificVariant?.images && specificVariant.images.length > 0) {
+                  let orderImage = '/placeholder-image.svg'; // Default fallback
+                  if (specificVariant?.images && specificVariant.images.length > 0 && specificVariant.images[0].trim() !== '') {
                     // Use specific variant image (color+size specific)
                     orderImage = specificVariant.images[0];
-                  } else if (selectedVariant?.images && selectedVariant.images.length > 0) {
+                  } else if (selectedVariant?.images && selectedVariant.images.length > 0 && selectedVariant.images[0].trim() !== '') {
                     // Use selected variant image (color specific)
                     orderImage = selectedVariant.images[0];
-                  } else if (currentImages && currentImages.length > 0) {
+                  } else if (currentImages && currentImages.length > 0 && currentImages[0].trim() !== '') {
                     // Use current images being displayed
                     orderImage = currentImages[0];
-                  } else if (product.images && product.images.length > 0) {
+                  } else if (product.images && product.images.length > 0 && product.images[0].trim() !== '') {
                     // Fall back to product images
                     orderImage = product.images[0];
                   }

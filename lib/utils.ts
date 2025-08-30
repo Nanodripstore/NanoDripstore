@@ -7,7 +7,8 @@ export function cn(...inputs: ClassValue[]) {
 
 /**
  * Normalizes email addresses to prevent duplicate accounts.
- * Handles various characters that email providers commonly ignore or treat as equivalent.
+ * Handles various characters that email providers treat as equivalent when determining uniqueness.
+ * Gmail ignores dots and plus signs in email addresses, so we normalize by removing them.
  */
 export function normalizeEmail(email: string): string {
   if (!email) return email;
@@ -65,48 +66,53 @@ export function normalizeEmail(email: string): string {
 }
 
 /**
- * Converts Google Drive sharing URLs to proxied URLs that avoid CORS issues
- * Uses a local Next.js API route to proxy the images server-side
+ * Converts Google Drive sharing URLs to ImageKit CDN URLs for fast, reliable image loading
+ * This uses ImageKit's Web Proxy feature with the full Google Drive URL
  */
 export function convertGoogleDriveUrl(url: string, colorVariant?: string): string {
   if (!url) return '';
   
   try {
+    // If it's already an ImageKit URL, return as-is
+    if (url.includes('ik.imagekit.io')) {
+      return url;
+    }
+
     // If it's not a Google Drive URL, return as-is
     if (!url.includes('drive.google.com')) {
       return url;
     }
 
-    // If it's already a proxied URL, return as-is
-    if (url.includes('/api/drive-proxy')) {
-      return url;
-    }
-
     // Extract the file ID from common Drive links
-    const match = url.match(/[-\w]{25,}/);
-    if (!match) return url; // if no ID found, return original
-
-    const fileId = match[0];
-    
-    // Create different Google Drive URL formats to try
-    const driveUrls = [
-      `https://drive.google.com/uc?export=download&id=${fileId}`,
-      `https://drive.google.com/uc?export=view&id=${fileId}`,
-      `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`
+    const patterns = [
+      /\/file\/d\/([a-zA-Z0-9_-]+)/,           // /file/d/FILE_ID
+      /[?&]id=([a-zA-Z0-9_-]+)/,               // ?id=FILE_ID or &id=FILE_ID
+      /\/d\/([a-zA-Z0-9_-]+)/,                 // /d/FILE_ID
     ];
 
-    // Use the first URL format with our proxy
-    const driveUrl = driveUrls[0];
-    let proxyUrl = `/api/drive-proxy?url=${encodeURIComponent(driveUrl)}`;
-    
-    // Add color variant as cache-busting parameter to ensure unique requests
-    if (colorVariant) {
-      proxyUrl += `&variant=${encodeURIComponent(colorVariant)}`;
+    let fileId = null;
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        fileId = match[1];
+        break;
+      }
     }
+
+    if (!fileId) {
+      console.warn('Could not extract file ID from Google Drive URL:', url);
+      return url; // Return original URL as fallback
+    }
+
+    // Create the Google Drive direct download URL
+    const googleDriveDirectUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
     
-    return proxyUrl;
+    // Build ImageKit Web Proxy URL with transformations BEFORE the external URL
+    const imagekitUrl = `https://ik.imagekit.io/nanodripstore/tr:w-800,h-800,c-maintain_aspect_ratio,q-85/${googleDriveDirectUrl}`;
+    
+    return imagekitUrl;
   } catch (error) {
-    console.warn('Error converting Google Drive URL:', error);
+    console.warn('Error converting Google Drive URL to ImageKit:', error);
     return url;
   }
 }
@@ -117,50 +123,192 @@ export function getDriveDirectLink(url: string, colorVariant?: string): string {
 }
 
 /**
- * Alternative Google Drive URL format that might work better for some files
- * This uses the thumbnail endpoint which can sometimes bypass CORS issues
+ * ImageKit transformation utilities for different use cases
+ */
+export const ImageKitTransforms = {
+  // Thumbnail sizes
+  thumbnail: (url: string) => convertToImageKitUrl(url, 'w-200,h-200,c-maintain_aspect_ratio,q-80'),
+  small: (url: string) => convertToImageKitUrl(url, 'w-400,h-400,c-maintain_aspect_ratio,q-80'),
+  medium: (url: string) => convertToImageKitUrl(url, 'w-800,h-800,c-maintain_aspect_ratio,q-85'),
+  large: (url: string) => convertToImageKitUrl(url, 'w-1200,h-1200,c-maintain_aspect_ratio,q-90'),
+  
+  // Product showcase specific
+  productCard: (url: string) => convertToImageKitUrl(url, 'w-300,h-400,c-maintain_aspect_ratio,q-80'),
+  productDetail: (url: string) => convertToImageKitUrl(url, 'w-600,h-800,c-maintain_aspect_ratio,q-85'),
+  productGallery: (url: string) => convertToImageKitUrl(url, 'w-1000,h-1200,c-maintain_aspect_ratio,q-90'),
+  
+  // Cart and checkout
+  cartItem: (url: string) => convertToImageKitUrl(url, 'w-100,h-120,c-maintain_aspect_ratio,q-75'),
+  
+  // Default - optimized but full size
+  optimized: (url: string) => convertToImageKitUrl(url, 'c-maintain_aspect_ratio,q-85'),
+};
+
+/**
+ * Helper function to convert Google Drive URL to ImageKit with custom transformations
+ */
+function convertToImageKitUrl(googleDriveUrl: string, transformations?: string): string {
+  if (!googleDriveUrl) return '';
+
+  // If it's already an ImageKit URL, return as-is
+  if (googleDriveUrl.includes('ik.imagekit.io')) {
+    return googleDriveUrl;
+  }
+
+  // If it's not a Google Drive URL, return as-is
+  if (!googleDriveUrl.includes('drive.google.com')) {
+    return googleDriveUrl;
+  }
+
+  // Extract file ID using the same logic as convertGoogleDriveUrl
+  const patterns = [
+    /\/file\/d\/([a-zA-Z0-9_-]+)/,
+    /[?&]id=([a-zA-Z0-9_-]+)/,
+    /\/d\/([a-zA-Z0-9_-]+)/,
+  ];
+
+  let fileId = null;
+  for (const pattern of patterns) {
+    const match = googleDriveUrl.match(pattern);
+    if (match && match[1]) {
+      fileId = match[1];
+      break;
+    }
+  }
+
+  if (!fileId) {
+    console.warn('Could not extract file ID from Google Drive URL:', googleDriveUrl);
+    return googleDriveUrl;
+  }
+
+  // Create the Google Drive direct download URL
+  const googleDriveDirectUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+
+  // Build ImageKit URL with transformations BEFORE the external URL
+  let imagekitUrl = `https://ik.imagekit.io/nanodripstore/`;
+  
+  // Add transformations if provided (before the URL)
+  if (transformations) {
+    imagekitUrl += `tr:${transformations}/`;
+  }
+  
+  imagekitUrl += googleDriveDirectUrl;
+
+  return imagekitUrl;
+}
+
+/**
+ * Get ImageKit thumbnail URL with specific size
  */
 export function getGoogleDriveThumbnailUrl(url: string, size: number = 800): string {
   if (!url) return '';
   
   try {
     // Extract the file ID from common Drive links
-    const match = url.match(/[-\w]{25,}/);
-    if (!match) return url; // if no ID found, return original
+    const patterns = [
+      /\/file\/d\/([a-zA-Z0-9_-]+)/,
+      /[?&]id=([a-zA-Z0-9_-]+)/,
+      /\/d\/([a-zA-Z0-9_-]+)/,
+    ];
 
-    const fileId = match[0];
-    const thumbnailUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w${size}`;
-    return `/api/drive-proxy?url=${encodeURIComponent(thumbnailUrl)}`;
+    let fileId = null;
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        fileId = match[1];
+        break;
+      }
+    }
+
+    if (!fileId) return url; // if no ID found, return original
+
+    // Create the Google Drive direct URL
+    const googleDriveDirectUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+    
+    // Return ImageKit URL with thumbnail transformation BEFORE the URL
+    return `https://ik.imagekit.io/nanodripstore/tr:w-${size},h-${size},c-maintain_aspect_ratio,q-80/${googleDriveDirectUrl}`;
   } catch (error) {
-    console.warn('Error creating Google Drive thumbnail URL:', error);
+    console.warn('Error creating ImageKit thumbnail URL:', error);
     return url;
   }
 }
 
 /**
- * Get multiple Google Drive URL formats for fallback strategies
+ * Get multiple ImageKit URL formats with different transformations for fallback strategies
  */
 export function getGoogleDriveUrlVariants(url: string): string[] {
   if (!url) return [];
   
   try {
     // Extract the file ID from common Drive links
-    const match = url.match(/[-\w]{25,}/);
-    if (!match) return [url]; // if no ID found, return original
-
-    const fileId = match[0];
-    
-    const variants = [
-      `https://drive.google.com/uc?export=download&id=${fileId}`,
-      `https://drive.google.com/uc?export=view&id=${fileId}`,
-      `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`,
-      `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`
+    const patterns = [
+      /\/file\/d\/([a-zA-Z0-9_-]+)/,
+      /[?&]id=([a-zA-Z0-9_-]+)/,
+      /\/d\/([a-zA-Z0-9_-]+)/,
     ];
 
-    // Return proxied versions of all variants
-    return variants.map(variant => `/api/drive-proxy?url=${encodeURIComponent(variant)}`);
+    let fileId = null;
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        fileId = match[1];
+        break;
+      }
+    }
+
+    if (!fileId) return [url]; // if no ID found, return original
+
+    // Create different Google Drive URLs for fallback
+    const googleDriveUrls = [
+      `https://drive.google.com/uc?export=view&id=${fileId}`,
+      `https://drive.google.com/uc?export=download&id=${fileId}`,
+      `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`
+    ];
+
+    // Return different ImageKit transformations for fallback with transformations BEFORE the URL
+    const variants = [
+      `https://ik.imagekit.io/nanodripstore/tr:w-800,h-800,c-maintain_aspect_ratio,q-85/${googleDriveUrls[0]}`,
+      `https://ik.imagekit.io/nanodripstore/tr:w-600,h-600,c-maintain_aspect_ratio,q-80/${googleDriveUrls[1]}`,
+      `https://ik.imagekit.io/nanodripstore/tr:w-400,h-400,c-maintain_aspect_ratio,q-80/${googleDriveUrls[2]}`,
+      `https://ik.imagekit.io/nanodripstore/${googleDriveUrls[0]}` // Original without transformations
+    ];
+
+    return variants;
   } catch (error) {
-    console.warn('Error creating Google Drive URL variants:', error);
+    console.warn('Error creating ImageKit URL variants:', error);
     return [url];
   }
+}
+
+/**
+ * Filters out empty, undefined, or whitespace-only image URLs
+ * @param images Array of image URLs
+ * @returns Array of valid image URLs
+ */
+export function getValidImages(images: string[] | undefined | null): string[] {
+  if (!Array.isArray(images)) return [];
+  return images.filter((img: string) => img && typeof img === 'string' && img.trim().length > 0);
+}
+
+/**
+ * Gets the first valid image from an array of images
+ * @param images Array of image URLs
+ * @returns First valid image URL or empty string if none found
+ */
+export function getFirstValidImage(images: string[] | undefined | null): string {
+  const validImages = getValidImages(images);
+  return validImages.length > 0 ? validImages[0] : '';
+}
+
+/**
+ * Get a safe image URL that is never empty (always returns a valid URL)
+ * @param url Image URL to validate
+ * @param fallback Fallback URL (defaults to placeholder)
+ * @returns A valid image URL (never empty)
+ */
+export function getSafeImageUrl(url: string | undefined | null, fallback: string = '/placeholder-image.svg'): string {
+  if (!url || typeof url !== 'string' || url.trim() === '') {
+    return fallback;
+  }
+  return url.trim();
 }

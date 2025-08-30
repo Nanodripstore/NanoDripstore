@@ -51,20 +51,22 @@ export default function ProductionImageDiagnostic() {
     // Find matching variant
     const matchingVariant = product.variants?.find((v: any) => v.colorName === colorName);
     
-    let imageToShow = '';
+    let imageToShow = '/placeholder-image.svg'; // Default fallback
     
-    if (matchingVariant && matchingVariant.images && matchingVariant.images.length > 0) {
+    if (matchingVariant && matchingVariant.images && matchingVariant.images.length > 0 && matchingVariant.images[0].trim() !== '') {
       imageToShow = matchingVariant.images[0];
       console.log('✅ Found variant-specific image:', imageToShow);
     } else {
       // Fallback to product-level images by color index
       const colorIndex = product.colors?.findIndex((c: any) => c.name === colorName);
-      if (colorIndex >= 0 && colorIndex < product.images?.length) {
+      if (colorIndex >= 0 && colorIndex < product.images?.length && product.images[colorIndex].trim() !== '') {
         imageToShow = product.images[colorIndex];
         console.log('📸 Using product-level image at index:', colorIndex, imageToShow);
-      } else {
-        imageToShow = product.images?.[0] || '';
+      } else if (product.images?.[0] && product.images[0].trim() !== '') {
+        imageToShow = product.images[0];
         console.log('⚠️ Fallback to first image:', imageToShow);
+      } else {
+        console.log('❌ No valid image found, using placeholder');
       }
     }
     

@@ -283,7 +283,7 @@ export const useCartStore = create<CartStore>()(
               console.log(`Item color: ${dbItem.color}, item name: ${dbItem.name}`);
               
               // Try to get the correct color-specific image
-              let colorSpecificImage = dbItem.image || '';
+              let colorSpecificImage = dbItem.image && dbItem.image.trim() !== '' ? dbItem.image : null;
               
               // If we have product data with variants, try to find the correct color image
               if (dbItem.products && dbItem.color && !colorSpecificImage) {
@@ -434,7 +434,11 @@ export const useCartStore = create<CartStore>()(
               const quantity = parseInt(dbItem.quantity) || 1;
               
               // Use current item's image if it exists (preserves fixes), otherwise use DB image
-              const preservedImage = currentItem?.image || dbItem.image || '';
+              const preservedImage = (currentItem?.image && currentItem.image.trim() !== '') 
+                ? currentItem.image 
+                : (dbItem.image && dbItem.image.trim() !== '') 
+                  ? dbItem.image 
+                  : '/placeholder-image.svg';
               
               console.log(`Smart sync - Item ${dbItem.productId}-${dbItem.color}: preserving image ${preservedImage}`);
               
@@ -481,7 +485,7 @@ export const useCartStore = create<CartStore>()(
               console.log(`Force refresh - Item color: ${dbItem.color}, item name: ${dbItem.name}`);
               
               // Try to get the correct color-specific image (same logic as syncWithDatabase)
-              let colorSpecificImage = dbItem.image || '';
+              let colorSpecificImage = dbItem.image && dbItem.image.trim() !== '' ? dbItem.image : null;
               
               // If we have product data with variants, try to find the correct color image
               if (dbItem.products && dbItem.color && !colorSpecificImage) {

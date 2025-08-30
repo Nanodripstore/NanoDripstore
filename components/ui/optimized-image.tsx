@@ -90,7 +90,7 @@ export default function OptimizedImage({
       {/* Actual image */}
       {(isInView || priority) && (
         <img
-          src={hasError ? placeholder : src}
+          src={hasError ? placeholder : (src || placeholder)}
           alt={alt}
           className={cn(
             "w-full h-full object-cover transition-opacity duration-300",

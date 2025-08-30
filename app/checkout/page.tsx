@@ -633,7 +633,7 @@ export default function Checkout() {
                         <div key={`${item.id}-${item.color}-${item.size}`} className="flex items-center gap-3">
                           <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-muted">
                             <SimpleProxiedImage
-                              src={item.image}
+                              src={item.image || '/placeholder.jpg'}
                               alt={`${item.name} - ${item.color}`}
                               className="w-full h-full object-cover"
                             />

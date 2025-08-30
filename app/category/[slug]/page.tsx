@@ -166,17 +166,23 @@ export default function CategoryPage({ params }: { params: { slug: string } | Pr
                         <Card className="group overflow-hidden border hover:border-primary transition-all duration-300">
                           <CardContent className="p-0">
                             <div className="relative aspect-square overflow-hidden bg-muted">
-                              {product.images && product.images[0] ? (
-                                <img
-                                  src={product.images[0]}
-                                  alt={product.name}
-                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                                />
-                              ) : (
-                                <div className="flex items-center justify-center h-full text-muted-foreground">
-                                  No image
-                                </div>
-                              )}
+                              {(() => {
+                                const validImages = Array.isArray(product.images) 
+                                  ? product.images.filter((img: string) => img && img.trim().length > 0)
+                                  : [];
+                                
+                                return validImages.length > 0 ? (
+                                  <img
+                                    src={validImages[0]}
+                                    alt={product.name}
+                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                                  />
+                                ) : (
+                                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                                    No image
+                                  </div>
+                                );
+                              })()}
                               <div className="absolute top-3 right-3 flex gap-2">
                                 <Button 
                                   size="icon" 

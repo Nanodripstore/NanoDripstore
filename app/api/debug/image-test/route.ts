@@ -20,11 +20,11 @@ export async function GET(request: Request) {
         variants: product.variants?.map((variant: any) => ({
           colorName: variant.colorName,
           originalImages: variant.images || [],
-          processedImages: (variant.images || []).map((img: string) => convertGoogleDriveUrl(img))
+          processedImages: (variant.images || []).map((img: string) => convertGoogleDriveUrl(img, variant.colorName))
         })) || [],
         firstImageTest: {
           original: product.images?.[0] || 'No image',
-          processed: product.images?.[0] ? convertGoogleDriveUrl(product.images[0]) : 'No image'
+          processed: product.images?.[0] ? convertGoogleDriveUrl(product.images[0], 'default') : 'No image'
         }
       };
     });

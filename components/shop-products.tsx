@@ -437,29 +437,43 @@ export default function ShopProducts() {
                       {(() => {
                         // Get selected color
                         const selectedColor = selectedColors[product.id];
-                        let imageToShow = product.images[0]; // Always start with default image
+                        
+                        // Filter out empty images and get valid images
+                        const validImages = Array.isArray(product.images) 
+                          ? product.images.filter((img: string) => img && img.trim().length > 0)
+                          : [];
+                        
+                        let imageToShow = validImages[0]; // Always start with first valid image
                         
                         // Only change image if user has explicitly selected a color
                         if (selectedColor) {
                           // If we have a selected color with variant and it has images, use those
                           if (selectedColor.variant?.images && selectedColor.variant.images.length > 0) {
-                            imageToShow = selectedColor.variant.images[0];
+                            const validVariantImages = selectedColor.variant.images.filter((img: string) => img && img.trim().length > 0);
+                            if (validVariantImages.length > 0) {
+                              imageToShow = validVariantImages[0];
+                            }
                           }
                           // If no variant images but we have a selected color, try to find matching image
-                          else if (Array.isArray(product.images) && product.images.length > 1) {
+                          else if (validImages.length > 1) {
                             // Try to find image index based on color selection
                             const colors = product.variants && product.variants.length > 0
                               ? product.variants.map((variant: any) => ({ name: variant.colorName, value: variant.colorValue, variant: variant }))
                               : typeof product.colors === 'string' ? JSON.parse(product.colors || '[]') : product.colors || [];
                             
                             const colorIndex = colors.findIndex((color: any) => color.name === selectedColor.name);
-                            if (colorIndex >= 0 && colorIndex < product.images.length) {
-                              imageToShow = product.images[colorIndex];
+                            if (colorIndex >= 0 && colorIndex < validImages.length) {
+                              imageToShow = validImages[colorIndex];
                             }
                           }
                         }
                         
-                        return Array.isArray(product.images) && product.images.length > 0 ? (
+                        // Final safety check - ensure imageToShow is not empty
+                        if (!imageToShow || imageToShow.trim() === '') {
+                          imageToShow = validImages[0]; // Fallback to first valid image
+                        }
+                        
+                        return validImages.length > 0 && imageToShow && imageToShow.trim() !== '' ? (
                           <SimpleProxiedImage
                             src={imageToShow}
                             alt={`${product.name} - ${selectedColor?.name || 'Default'}`}
@@ -712,7 +726,9 @@ export default function ShopProducts() {
                           
                           let orderSku = product.sku;
                           let orderName = product.name;
-                          let orderImage = product.images[0] || '';
+                          let orderImage = (product.images[0] && product.images[0].trim() !== '') 
+                            ? product.images[0] 
+                            : '/placeholder-image.svg';
                           let variantInfo = '';
                           
                           // If a variant is selected or defaulted, use its information

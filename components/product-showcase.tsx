@@ -31,6 +31,26 @@ export default function ProductShowcase() {
     sortOrder: 'desc'
   });
 
+  // Debug logging for production data
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'production' && data?.products) {
+      console.log('Production data received:', {
+        totalProducts: data.products.length,
+        products: data.products.map(p => ({
+          id: p.id,
+          name: p.name,
+          variants: p.variants?.length || 0,
+          images: p.images?.length || 0,
+          variantDetails: p.variants?.map(v => ({
+            colorName: v.colorName,
+            images: v.images?.length || 0,
+            firstImage: v.images?.[0]
+          }))
+        }))
+      });
+    }
+  }, [data?.products]);
+
   // Custom sorting function: bestseller > new > wishlisted > non-wishlisted
   const getSortedProducts = (products: any[]) => {
     if (!products) return [];
@@ -150,17 +170,39 @@ export default function ProductShowcase() {
 
   // Helper function to get default image for a product (used during SSR)
   const getDefaultImageForProduct = (product: any) => {
+    // Debug logging for production
+    if (process.env.NODE_ENV === 'production') {
+      console.log('getDefaultImageForProduct called for:', {
+        productId: product.id,
+        productName: product.name,
+        variants: product.variants?.length || 0,
+        images: product.images?.length || 0,
+        firstVariantImages: product.variants?.[0]?.images?.length || 0
+      });
+    }
+    
     if (product.variants && product.variants.length > 0) {
       const firstVariant = product.variants[0];
       if (firstVariant.images && firstVariant.images.length > 0) {
-        return convertGoogleDriveUrl(firstVariant.images[0]);
+        const imageUrl = convertGoogleDriveUrl(firstVariant.images[0]);
+        if (process.env.NODE_ENV === 'production') {
+          console.log('Using first variant image:', imageUrl);
+        }
+        return imageUrl;
       }
     }
     
     if (Array.isArray(product.images) && product.images.length > 0) {
-      return convertGoogleDriveUrl(product.images[0]);
+      const imageUrl = convertGoogleDriveUrl(product.images[0]);
+      if (process.env.NODE_ENV === 'production') {
+        console.log('Using first product image:', imageUrl);
+      }
+      return imageUrl;
     }
     
+    if (process.env.NODE_ENV === 'production') {
+      console.log('No image found for product:', product.id);
+    }
     return '';
   };
 
@@ -393,11 +435,26 @@ export default function ProductShowcase() {
                           const selectedColor = selectedColors[product.id];
                           let imageToShow = '';
                           
+                          // Debug logging for production
+                          if (process.env.NODE_ENV === 'production') {
+                            console.log('Image selection for product:', {
+                              productId: product.id,
+                              productName: product.name,
+                              selectedColor: selectedColor?.name || 'none',
+                              hasVariantImages: selectedColor?.variant?.images?.length || 0,
+                              productImages: product.images?.length || 0,
+                              totalVariants: product.variants?.length || 0
+                            });
+                          }
+                          
                           // Determine image to show based on available data
                           if (selectedColor) {
                             // If we have a selected color with variant and it has images, use those
                             if (selectedColor.variant?.images && selectedColor.variant.images.length > 0) {
                               imageToShow = convertGoogleDriveUrl(selectedColor.variant.images[0]);
+                              if (process.env.NODE_ENV === 'production') {
+                                console.log('Using variant image:', imageToShow);
+                              }
                             }
                             // If no variant images but we have a selected color, try to find matching image
                             else if (Array.isArray(product.images) && product.images.length > 1) {
@@ -408,8 +465,20 @@ export default function ProductShowcase() {
                               
                               const colorIndex = colors.findIndex((color: any) => color.name === selectedColor.name);
                               
+                              if (process.env.NODE_ENV === 'production') {
+                                console.log('Color matching result:', {
+                                  colors: colors.map(c => c.name),
+                                  selectedColorName: selectedColor.name,
+                                  colorIndex,
+                                  availableImages: product.images.length
+                                });
+                              }
+                              
                               if (colorIndex >= 0 && colorIndex < product.images.length) {
                                 imageToShow = convertGoogleDriveUrl(product.images[colorIndex]);
+                                if (process.env.NODE_ENV === 'production') {
+                                  console.log('Using color-matched image:', imageToShow);
+                                }
                               } else {
                                 // Fallback to first image if color not found
                                 imageToShow = getDefaultImageForProduct(product);

@@ -33,6 +33,9 @@ export default function ProductShowcase() {
 
   // Debug logging for production data
   useEffect(() => {
+    // Debug logging temporarily disabled - issue resolved
+    // Uncomment below if debugging is needed again
+    /*
     if (process.env.NODE_ENV === 'production' && data?.products) {
       console.log('Production data received:', {
         totalProducts: data.products.length,
@@ -49,6 +52,7 @@ export default function ProductShowcase() {
         }))
       });
     }
+    */
   }, [data?.products]);
 
   // Custom sorting function: bestseller > new > wishlisted > non-wishlisted
@@ -170,11 +174,6 @@ export default function ProductShowcase() {
 
   // Helper function to get image for a specific color/variant
   const getImageForColor = (product: any, colorName: string) => {
-    // Debug logging for production
-    if (process.env.NODE_ENV === 'production') {
-      console.log('getImageForColor called:', { productId: product.id, colorName });
-    }
-    
     // First try to find the variant with the exact color name
     if (product.variants && product.variants.length > 0) {
       const matchingVariant = product.variants.find((variant: any) => 
@@ -182,11 +181,7 @@ export default function ProductShowcase() {
       );
       
       if (matchingVariant && matchingVariant.images && matchingVariant.images.length > 0) {
-        const imageUrl = convertGoogleDriveUrl(matchingVariant.images[0]);
-        if (process.env.NODE_ENV === 'production') {
-          console.log('Found matching variant image:', imageUrl);
-        }
-        return imageUrl;
+        return convertGoogleDriveUrl(matchingVariant.images[0]);
       }
       
       // If no exact match, use any variant with images (they should all have the same images for same color)
@@ -195,64 +190,31 @@ export default function ProductShowcase() {
       );
       
       if (variantWithImages) {
-        const imageUrl = convertGoogleDriveUrl(variantWithImages.images[0]);
-        if (process.env.NODE_ENV === 'production') {
-          console.log('Using any variant image:', imageUrl);
-        }
-        return imageUrl;
+        return convertGoogleDriveUrl(variantWithImages.images[0]);
       }
     }
     
     // Fallback to product-level images
     if (Array.isArray(product.images) && product.images.length > 0) {
-      const imageUrl = convertGoogleDriveUrl(product.images[0]);
-      if (process.env.NODE_ENV === 'production') {
-        console.log('Using product-level image:', imageUrl);
-      }
-      return imageUrl;
+      return convertGoogleDriveUrl(product.images[0]);
     }
     
-    if (process.env.NODE_ENV === 'production') {
-      console.log('No image found for color:', colorName);
-    }
     return '';
   };
 
   // Helper function to get default image for a product (used during SSR)
   const getDefaultImageForProduct = (product: any) => {
-    // Debug logging for production
-    if (process.env.NODE_ENV === 'production') {
-      console.log('getDefaultImageForProduct called for:', {
-        productId: product.id,
-        productName: product.name,
-        variants: product.variants?.length || 0,
-        images: product.images?.length || 0,
-        firstVariantImages: product.variants?.[0]?.images?.length || 0
-      });
-    }
-    
     if (product.variants && product.variants.length > 0) {
       const firstVariant = product.variants[0];
       if (firstVariant.images && firstVariant.images.length > 0) {
-        const imageUrl = convertGoogleDriveUrl(firstVariant.images[0]);
-        if (process.env.NODE_ENV === 'production') {
-          console.log('Using first variant image:', imageUrl);
-        }
-        return imageUrl;
+        return convertGoogleDriveUrl(firstVariant.images[0]);
       }
     }
     
     if (Array.isArray(product.images) && product.images.length > 0) {
-      const imageUrl = convertGoogleDriveUrl(product.images[0]);
-      if (process.env.NODE_ENV === 'production') {
-        console.log('Using first product image:', imageUrl);
-      }
-      return imageUrl;
+      return convertGoogleDriveUrl(product.images[0]);
     }
     
-    if (process.env.NODE_ENV === 'production') {
-      console.log('No image found for product:', product.id);
-    }
     return '';
   };
 
@@ -484,18 +446,6 @@ export default function ProductShowcase() {
                           // Get selected color
                           const selectedColor = selectedColors[product.id];
                           let imageToShow = '';
-                          
-                          // Debug logging for production
-                          if (process.env.NODE_ENV === 'production') {
-                            console.log('Image selection for product:', {
-                              productId: product.id,
-                              productName: product.name,
-                              selectedColor: selectedColor?.name || 'none',
-                              hasVariantImages: selectedColor?.variant?.images?.length || 0,
-                              productImages: product.images?.length || 0,
-                              totalVariants: product.variants?.length || 0
-                            });
-                          }
                           
                           // Determine image to show based on selected color
                           if (selectedColor) {

@@ -37,9 +37,17 @@ export function SimpleProxiedImage({
 
   // Use proxy for Google Drive images, direct URL for others
   const shouldProxy = src.includes('drive.google.com');
-  const imageSrc = shouldProxy 
+  
+  // Add cache busting for production to ensure fresh images
+  let imageSrc = shouldProxy 
     ? `/api/image-proxy?url=${encodeURIComponent(src)}`
     : src;
+    
+  // Add cache busting parameter in production
+  if (shouldProxy && process.env.NODE_ENV === 'production') {
+    const cacheBuster = Math.floor(Date.now() / (1000 * 60 * 5)); // Change every 5 minutes
+    imageSrc += `&cb=${cacheBuster}`;
+  }
 
   console.log('SimpleProxiedImage:', { 
     original: src, 

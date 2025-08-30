@@ -42,10 +42,13 @@ export async function GET(request: Request) {
     return new Response(imageBuffer, {
       headers: {
         'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
+        'Cache-Control': process.env.NODE_ENV === 'production' 
+          ? 'public, max-age=300, must-revalidate' // 5 minutes cache with revalidation in production
+          : 'public, max-age=3600', // 1 hour cache in development
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET',
         'Access-Control-Allow-Headers': 'Content-Type',
+        'Vary': 'Accept, User-Agent',
       },
     });
 

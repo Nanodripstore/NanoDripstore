@@ -134,10 +134,11 @@ export function useProductsFromSheet({
       searchParams.append('sortBy', sortBy);
       searchParams.append('sortOrder', sortOrder);
       if (refresh) searchParams.append('refresh', 'true'); // Add cache busting
-      // Add timestamp to force fresh data on page reload in production
-      if (process.env.NODE_ENV === 'production') {
-        searchParams.append('t', Date.now().toString());
-      }
+      // Cache busting disabled - image issue resolved
+      // Uncomment below if cache issues arise again
+      // if (process.env.NODE_ENV === 'production') {
+      //   searchParams.append('t', Date.now().toString());
+      // }
 
       const response = await fetch(`/api/products/live?${searchParams.toString()}`);
       if (!response.ok) {

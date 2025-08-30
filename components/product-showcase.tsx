@@ -107,31 +107,18 @@ export default function ProductShowcase() {
   // Initialize first color as default for each product
   useEffect(() => {
     if (data?.products && data.products.length > 0) {
-      console.log('Initializing default selections for products:', data.products.map(p => ({ id: p.id, name: p.name })));
-      
       const newSelectedColors: { [productId: number]: any } = {};
       const newSelectedSizes: { [productId: number]: string } = {};
       
       data.products.forEach((product: any) => {
-        console.log(`Processing product ${product.id} (${product.name}):`, {
-          hasVariants: !!(product.variants && product.variants.length > 0),
-          variants: product.variants,
-          hasColors: !!(product.colors),
-          colors: product.colors,
-          hasSizes: !!(product.sizes && product.sizes.length > 0),
-          sizes: product.sizes
-        });
-        
         // Always initialize default color for products we haven't seen before
         const productAlreadyHasColor = Object.prototype.hasOwnProperty.call(selectedColors, product.id);
-        console.log(`Product ${product.id} already has color:`, productAlreadyHasColor);
         
         if (!productAlreadyHasColor) {
           // Use variants if available, otherwise fall back to old color system
           if (product.variants && product.variants.length > 0) {
             // Set first variant as default
             const firstVariant = product.variants[0];
-            console.log(`Setting variant color for ${product.name}:`, firstVariant);
             newSelectedColors[product.id] = {
               name: firstVariant.colorName,
               value: firstVariant.colorValue,
@@ -143,7 +130,6 @@ export default function ProductShowcase() {
               ? JSON.parse(product.colors || '[]') 
               : product.colors || [];
             
-            console.log(`Setting fallback color for ${product.name}:`, colors[0]);
             if (colors.length > 0) {
               newSelectedColors[product.id] = colors[0];
             }
@@ -156,29 +142,20 @@ export default function ProductShowcase() {
         if (!productAlreadyHasSize && product.sizes && product.sizes.length > 0) {
           // Prefer 'S' size if available, otherwise use first size
           const preferredSize = product.sizes.includes('S') ? 'S' : product.sizes[0];
-          console.log(`Setting default size for ${product.name}:`, preferredSize);
           newSelectedSizes[product.id] = preferredSize;
         }
       });
       
       // Update colors if we have new ones to set
       if (Object.keys(newSelectedColors).length > 0) {
-        console.log('Setting default colors for products:', Object.keys(newSelectedColors));
-        console.log('New selected colors:', newSelectedColors);
-        setSelectedColors(prev => {
-          console.log('Previous selected colors:', prev);
-          const updated = {
-            ...prev,
-            ...newSelectedColors
-          };
-          console.log('Updated selected colors:', updated);
-          return updated;
-        });
+        setSelectedColors(prev => ({
+          ...prev,
+          ...newSelectedColors
+        }));
       }
       
       // Update sizes if we have new ones to set
       if (Object.keys(newSelectedSizes).length > 0) {
-        console.log('Setting default sizes for products:', Object.keys(newSelectedSizes));
         setSelectedSizes(prev => ({
           ...prev,
           ...newSelectedSizes
@@ -189,30 +166,17 @@ export default function ProductShowcase() {
 
   // Helper function to get default image for a product (used during SSR)
   const getDefaultImageForProduct = (product: any) => {
-    console.log(`Getting default image for product ${product.id} (${product.name}):`, {
-      hasVariants: !!(product.variants && product.variants.length > 0),
-      variantsCount: product.variants?.length || 0,
-      hasImages: !!(Array.isArray(product.images) && product.images.length > 0),
-      imagesCount: product.images?.length || 0,
-      firstVariant: product.variants?.[0],
-      firstImage: product.images?.[0]
-    });
-    
     if (product.variants && product.variants.length > 0) {
       const firstVariant = product.variants[0];
-      console.log(`First variant for ${product.name}:`, firstVariant);
       if (firstVariant.images && firstVariant.images.length > 0) {
-        console.log(`Using variant image for ${product.name}:`, firstVariant.images[0]);
         return firstVariant.images[0];
       }
     }
     
     if (Array.isArray(product.images) && product.images.length > 0) {
-      console.log(`Using product image for ${product.name}:`, product.images[0]);
       return product.images[0];
     }
     
-    console.log(`No image found for ${product.name}`);
     return '';
   };
 
@@ -458,24 +422,11 @@ export default function ProductShowcase() {
                           const selectedColor = selectedColors[product.id];
                           let imageToShow = '';
                           
-                          console.log(`Image selection IIFE for product ${product.id} (${product.name}):`, {
-                            hasSelectedColor: !!selectedColor,
-                            selectedColor,
-                            productImages: product.images,
-                            productVariants: product.variants?.map(v => ({ 
-                              colorName: v.colorName, 
-                              hasImages: !!(v.images && v.images.length > 0),
-                              images: v.images 
-                            }))
-                          });
-                          
                           // Determine image to show based on available data
                           if (selectedColor) {
-                            console.log(`Processing selected color for ${product.name}:`, selectedColor);
                             // If we have a selected color with variant and it has images, use those
                             if (selectedColor.variant?.images && selectedColor.variant.images.length > 0) {
                               imageToShow = selectedColor.variant.images[0];
-                              console.log(`Using variant image for ${product.name}:`, imageToShow);
                             }
                             // If no variant images but we have a selected color, try to find matching image
                             else if (Array.isArray(product.images) && product.images.length > 1) {
@@ -484,30 +435,22 @@ export default function ProductShowcase() {
                                 ? product.variants.map((variant: any) => ({ name: variant.colorName, value: variant.colorValue, variant: variant }))
                                 : typeof product.colors === 'string' ? JSON.parse(product.colors || '[]') : product.colors || [];
                               
-                              console.log(`Colors array for ${product.name}:`, colors);
                               const colorIndex = colors.findIndex((color: any) => color.name === selectedColor.name);
-                              console.log(`Color index for ${selectedColor.name} in ${product.name}:`, colorIndex);
                               
                               if (colorIndex >= 0 && colorIndex < product.images.length) {
                                 imageToShow = product.images[colorIndex];
-                                console.log(`Using indexed image for ${product.name}:`, imageToShow);
                               } else {
                                 // Fallback to first image if color not found
                                 imageToShow = getDefaultImageForProduct(product);
-                                console.log(`Using fallback default image for ${product.name}:`, imageToShow);
                               }
                             } else {
                               // Fallback to default image
                               imageToShow = getDefaultImageForProduct(product);
-                              console.log(`Using default image (no multi images) for ${product.name}:`, imageToShow);
                             }
                           } else {
                             // No selected color yet - use default image (important for SSR)
                             imageToShow = getDefaultImageForProduct(product);
-                            console.log(`Using default image (no selected color) for ${product.name}:`, imageToShow);
                           }
-                          
-                          console.log(`Final image for ${product.name}:`, imageToShow);
                           
                           return imageToShow ? (
                             <SimpleProxiedImage

@@ -106,13 +106,15 @@ export default function ProductShowcase() {
 
   // Initialize first color as default for each product
   useEffect(() => {
-    if (data?.products) {
+    if (data?.products && data.products.length > 0) {
       const newSelectedColors: { [productId: number]: any } = {};
       const newSelectedSizes: { [productId: number]: string } = {};
       
       data.products.forEach((product: any) => {
-        // Initialize default color if not already set
-        if (!selectedColors[product.id]) {
+        // Always initialize default color for products we haven't seen before
+        const productAlreadyHasColor = Object.prototype.hasOwnProperty.call(selectedColors, product.id);
+        
+        if (!productAlreadyHasColor) {
           // Use variants if available, otherwise fall back to old color system
           if (product.variants && product.variants.length > 0) {
             // Set first variant as default
@@ -134,8 +136,10 @@ export default function ProductShowcase() {
           }
         }
         
-        // Initialize default size if not already set
-        if (!selectedSizes[product.id] && product.sizes && product.sizes.length > 0) {
+        // Always initialize default size for products we haven't seen before
+        const productAlreadyHasSize = Object.prototype.hasOwnProperty.call(selectedSizes, product.id);
+        
+        if (!productAlreadyHasSize && product.sizes && product.sizes.length > 0) {
           // Prefer 'S' size if available, otherwise use first size
           const preferredSize = product.sizes.includes('S') ? 'S' : product.sizes[0];
           newSelectedSizes[product.id] = preferredSize;
@@ -144,6 +148,7 @@ export default function ProductShowcase() {
       
       // Update colors if we have new ones to set
       if (Object.keys(newSelectedColors).length > 0) {
+        console.log('Setting default colors for products:', Object.keys(newSelectedColors));
         setSelectedColors(prev => ({
           ...prev,
           ...newSelectedColors
@@ -152,13 +157,30 @@ export default function ProductShowcase() {
       
       // Update sizes if we have new ones to set
       if (Object.keys(newSelectedSizes).length > 0) {
+        console.log('Setting default sizes for products:', Object.keys(newSelectedSizes));
         setSelectedSizes(prev => ({
           ...prev,
           ...newSelectedSizes
         }));
       }
     }
-  }, [data?.products]);
+  }, [data?.products]); // Remove selectedColors from dependency to avoid circular dependency
+
+  // Helper function to get default image for a product (used during SSR)
+  const getDefaultImageForProduct = (product: any) => {
+    if (product.variants && product.variants.length > 0) {
+      const firstVariant = product.variants[0];
+      if (firstVariant.images && firstVariant.images.length > 0) {
+        return firstVariant.images[0];
+      }
+    }
+    
+    if (Array.isArray(product.images) && product.images.length > 0) {
+      return product.images[0];
+    }
+    
+    return '';
+  };
 
   const handleAddToCart = (product: any, selectedVariant?: any) => {
     if (!session?.user) {
@@ -400,9 +422,9 @@ export default function ProductShowcase() {
                         {(() => {
                           // Get selected color
                           const selectedColor = selectedColors[product.id];
-                          let imageToShow = product.images[0]; // Always start with default image
+                          let imageToShow = '';
                           
-                          // Only change image if user has explicitly selected a color
+                          // Determine image to show based on available data
                           if (selectedColor) {
                             // If we have a selected color with variant and it has images, use those
                             if (selectedColor.variant?.images && selectedColor.variant.images.length > 0) {
@@ -418,11 +440,20 @@ export default function ProductShowcase() {
                               const colorIndex = colors.findIndex((color: any) => color.name === selectedColor.name);
                               if (colorIndex >= 0 && colorIndex < product.images.length) {
                                 imageToShow = product.images[colorIndex];
+                              } else {
+                                // Fallback to first image if color not found
+                                imageToShow = getDefaultImageForProduct(product);
                               }
+                            } else {
+                              // Fallback to default image
+                              imageToShow = getDefaultImageForProduct(product);
                             }
+                          } else {
+                            // No selected color yet - use default image (important for SSR)
+                            imageToShow = getDefaultImageForProduct(product);
                           }
                           
-                          return Array.isArray(product.images) && product.images.length > 0 ? (
+                          return imageToShow ? (
                             <SimpleProxiedImage
                               src={imageToShow}
                               alt={`${product.name}${selectedColor ? ` - ${selectedColor.name}` : ''}`}

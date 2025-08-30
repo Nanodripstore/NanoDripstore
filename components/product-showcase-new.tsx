@@ -96,7 +96,7 @@ export default function ProductShowcase() {
     });
     
     toast.success(`Added ${product.name} to cart!`, {
-      description: `Color: ${defaultColor} • Size: ${defaultSize} • Price: $${product.price}`,
+      description: `Color: ${defaultColor} • Size: ${defaultSize} • Price: ₹${product.price}`,
     });
   };
 
@@ -250,7 +250,7 @@ export default function ProductShowcase() {
                         className="relative w-full h-full cursor-pointer"
                         onClick={() => handleQuickView(product)}
                       >
-                        {Array.isArray(product.images) && product.images.length > 0 ? (
+                        {Array.isArray(product.images) && product.images.length > 0 && product.images[0] ? (
                           <img
                             src={product.images[0]}
                             alt={product.name}
@@ -340,7 +340,7 @@ export default function ProductShowcase() {
                       {/* Price */}
                       <div className="flex items-center gap-2 mb-3 sm:mb-4">
                         <span className="text-lg sm:text-xl font-bold text-primary">
-                          ${product.price}
+                          ₹{product.price}
                         </span>
                       </div>
 

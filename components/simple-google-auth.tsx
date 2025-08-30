@@ -42,11 +42,17 @@ export default function SimpleGoogleAuth() {
   if (user) {
     return (
       <div className="flex items-center space-x-4">
-        <img 
-          src={(user as any).picture} 
-          alt="Profile" 
-          className="w-8 h-8 rounded-full"
-        />
+        {(user as any).picture ? (
+          <img 
+            src={(user as any).picture} 
+            alt="Profile" 
+            className="w-8 h-8 rounded-full"
+          />
+        ) : (
+          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+            <span className="text-xs text-gray-500">?</span>
+          </div>
+        )}
         <span>Welcome, {(user as any).name}</span>
         <button 
           onClick={signOut}

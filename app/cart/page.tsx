@@ -5,7 +5,7 @@ import { useCartStore } from '@/lib/cart-store'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react'
-import Image from 'next/image'
+import { SimpleProxiedImage } from '@/components/simple-proxied-image'
 import Link from 'next/link'
 import Header from '@/components/header'
 import Footer from '@/components/footer'
@@ -20,16 +20,17 @@ export default function CartPage() {
     getTotalPrice, 
     getTotalItems,
     clearCart,
-    forceRefresh,
+    smartSync,
     currentUserId
   } = useCartStore()
 
-  // Force refresh cart when page loads
+  // Smart sync cart when page loads (preserves fixed images)
   useEffect(() => {
     if (currentUserId) {
-      forceRefresh()
+      console.log('Running smart sync to preserve fixed images');
+      smartSync()
     }
-  }, [currentUserId, forceRefresh])
+  }, [currentUserId, smartSync])
 
   const total = getTotalPrice()
   const itemCount = getTotalItems()
@@ -112,12 +113,17 @@ export default function CartPage() {
                     <CardContent className="p-6">
                       <div className="flex items-center gap-4">
                         <div className="relative h-24 w-24 flex-shrink-0">
-                          <Image
-                            src={item.image}
-                            alt={item.name}
-                            fill
-                            className="object-cover rounded-lg"
-                          />
+                          {item.image ? (
+                            <SimpleProxiedImage
+                              src={item.image}
+                              alt={item.name}
+                              className="w-full h-full object-cover rounded-lg"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-muted rounded-lg flex items-center justify-center">
+                              <span className="text-xs text-muted-foreground">No image</span>
+                            </div>
+                          )}
                         </div>
                         
                         <div className="flex-1 min-w-0">
@@ -157,8 +163,8 @@ export default function CartPage() {
                           {/* Price and Remove */}
                           <div className="flex items-center gap-4">
                             <div className="text-right">
-                              <p className="text-xl font-bold">${(item.price * item.quantity).toFixed(2)}</p>
-                              <p className="text-xs text-muted-foreground">${item.price.toFixed(2)} each</p>
+                              <p className="text-xl font-bold">₹{(item.price * item.quantity).toFixed(2)}</p>
+                              <p className="text-xs text-muted-foreground">₹{item.price.toFixed(2)} each</p>
                             </div>
 
                             <Button
@@ -195,7 +201,7 @@ export default function CartPage() {
                   <div className="space-y-3">
                     <div className="flex justify-between text-sm">
                       <span>Subtotal ({itemCount} items)</span>
-                      <span className="font-semibold">${total.toFixed(2)}</span>
+                      <span className="font-semibold">₹{total.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span>Shipping</span>
@@ -204,7 +210,7 @@ export default function CartPage() {
                     <div className="border-t pt-3">
                       <div className="flex justify-between text-lg font-bold">
                         <span>Total</span>
-                        <span>${total.toFixed(2)}</span>
+                        <span>₹{total.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>

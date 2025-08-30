@@ -21,7 +21,7 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import OptimizedImage from '@/components/ui/optimized-image';
+import { SimpleProxiedImage } from '@/components/simple-proxied-image';
 import Link from 'next/link';
 
 export default function ShopProducts() {
@@ -68,6 +68,7 @@ export default function ShopProducts() {
   const [sortOption, setSortOption] = useState('createdAt:desc');
   const [refreshProducts, setRefreshProducts] = useState(process.env.NODE_ENV === 'production'); // Always true in production
   const [selectedColors, setSelectedColors] = useState<{ [productId: number]: any }>({});
+  const [selectedSizes, setSelectedSizes] = useState<{ [productId: number]: string }>({});
   
   // Force refresh on component mount (page reload) - more aggressive in production
   useEffect(() => {
@@ -120,8 +121,31 @@ export default function ShopProducts() {
       return;
     }
     
-    // Get selected color or use default
+    // Get selected color and size from state
     const selectedColor = selectedColors[product.id];
+    const selectedSize = selectedSizes[product.id];
+
+    console.log('=== SHOP ADD TO CART DEBUG ===');
+    console.log('Original product:', product);
+    console.log('Selected color:', selectedColor);
+    console.log('Selected size:', selectedSize);
+    console.log('Selected variant:', selectedVariant);
+
+    // Require color and size selection for products with variants
+    if (product.variants && product.variants.length > 0 && !selectedColor) {
+      toast.error('Please select a color', {
+        description: 'You need to select a color before adding to cart',
+      });
+      return;
+    }
+
+    if (product.sizes && product.sizes.length > 0 && !selectedSize) {
+      toast.error('Please select a size', {
+        description: 'You need to select a size before adding to cart',
+      });
+      return;
+    }
+
     let colorName = 'Default';
     let productImage = Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : '/placeholder.jpg';
     
@@ -133,20 +157,31 @@ export default function ShopProducts() {
       }
     } else if (selectedColor) {
       colorName = selectedColor.name || 'Default';
+      console.log('Using selectedColor logic. Color name:', colorName);
+      console.log('selectedColor object:', selectedColor);
+      console.log('selectedColor.variant:', selectedColor.variant);
+      
       // If variant has images, use those
       if (selectedColor.variant?.images && selectedColor.variant.images.length > 0) {
         productImage = selectedColor.variant.images[0];
+        console.log('Found variant-specific image:', productImage);
       }
       // Otherwise try to find matching image by color index
       else if (Array.isArray(product.images) && product.images.length > 1) {
+        console.log('Falling back to color index mapping');
         const colors = product.variants && product.variants.length > 0
           ? product.variants.map((variant: any) => ({ name: variant.colorName, value: variant.colorValue, variant: variant }))
           : typeof product.colors === 'string' ? JSON.parse(product.colors || '[]') : product.colors || [];
         
+        console.log('Colors for index mapping:', colors);
         const colorIndex = colors.findIndex((color: any) => color.name === selectedColor.name);
+        console.log('Color index found:', colorIndex, 'for color:', selectedColor.name);
         if (colorIndex >= 0 && colorIndex < product.images.length) {
           productImage = product.images[colorIndex];
+          console.log('Using color index image:', productImage);
         }
+      } else {
+        console.log('No color-specific image logic applied');
       }
     } else {
       // Parse JSON colors if it's a string for default
@@ -161,21 +196,27 @@ export default function ShopProducts() {
       }
       colorName = colors[0]?.name || 'Default';
     }
+
+    // Use selected size or fallback to default
+    const finalSize = selectedSize || product.sizes?.[0] || 'M';
     
-    const defaultSize = product.sizes?.[0] || 'M'; // Default to first size or M
-    
-    addItem({
+    const cartItem = {
       id: product.id,
       name: product.name,
       price: product.price,
       color: colorName,
-      size: defaultSize,
+      size: finalSize,
       image: productImage,
       type: product.type
-    });
+    };
+    
+    console.log('Cart item being added:', cartItem);
+    console.log('=== END SHOP DEBUG ===');
+    
+    addItem(cartItem);
     
     toast.success(`Added ${product.name} to cart!`, {
-      description: `Color: ${colorName} • Size: ${defaultSize} • Price: $${product.price}`,
+      description: `Color: ${colorName} • Size: ${finalSize} • Price: ₹${product.price}`,
     });
   };
 
@@ -394,33 +435,35 @@ export default function ShopProducts() {
                       onClick={() => handleQuickView(product)}
                     >
                       {(() => {
-                        // Get selected color or default to first variant/color
+                        // Get selected color
                         const selectedColor = selectedColors[product.id];
-                        let imageToShow = product.images[0]; // Default image
+                        let imageToShow = product.images[0]; // Always start with default image
                         
-                        // If we have a selected color with variant and it has images, use those
-                        if (selectedColor?.variant?.images && selectedColor.variant.images.length > 0) {
-                          imageToShow = selectedColor.variant.images[0];
-                        }
-                        // If no variant images but we have a selected color, try to find matching image
-                        else if (selectedColor && Array.isArray(product.images) && product.images.length > 1) {
-                          // Try to find image index based on color selection
-                          const colors = product.variants && product.variants.length > 0
-                            ? product.variants.map((variant: any) => ({ name: variant.colorName, value: variant.colorValue, variant: variant }))
-                            : typeof product.colors === 'string' ? JSON.parse(product.colors || '[]') : product.colors || [];
-                          
-                          const colorIndex = colors.findIndex((color: any) => color.name === selectedColor.name);
-                          if (colorIndex >= 0 && colorIndex < product.images.length) {
-                            imageToShow = product.images[colorIndex];
+                        // Only change image if user has explicitly selected a color
+                        if (selectedColor) {
+                          // If we have a selected color with variant and it has images, use those
+                          if (selectedColor.variant?.images && selectedColor.variant.images.length > 0) {
+                            imageToShow = selectedColor.variant.images[0];
+                          }
+                          // If no variant images but we have a selected color, try to find matching image
+                          else if (Array.isArray(product.images) && product.images.length > 1) {
+                            // Try to find image index based on color selection
+                            const colors = product.variants && product.variants.length > 0
+                              ? product.variants.map((variant: any) => ({ name: variant.colorName, value: variant.colorValue, variant: variant }))
+                              : typeof product.colors === 'string' ? JSON.parse(product.colors || '[]') : product.colors || [];
+                            
+                            const colorIndex = colors.findIndex((color: any) => color.name === selectedColor.name);
+                            if (colorIndex >= 0 && colorIndex < product.images.length) {
+                              imageToShow = product.images[colorIndex];
+                            }
                           }
                         }
                         
                         return Array.isArray(product.images) && product.images.length > 0 ? (
-                          <OptimizedImage
+                          <SimpleProxiedImage
                             src={imageToShow}
                             alt={`${product.name} - ${selectedColor?.name || 'Default'}`}
                             className="w-full h-full transition-all duration-500 group-hover:scale-105"
-                            key={`${product.id}-${selectedColor?.name || 'default'}`} // Key for smooth transitions
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center bg-muted">
@@ -498,8 +541,7 @@ export default function ShopProducts() {
                           return (
                             <>
                               {visibleColors.map((color: any, colorIndex: number) => {
-                                const isSelected = selectedColor?.name === color.name || 
-                                  (!selectedColor && colorIndex === 0);
+                                const isSelected = selectedColor?.name === color.name;
                                 
                                 return (
                                   <div
@@ -512,6 +554,7 @@ export default function ShopProducts() {
                                     style={{ backgroundColor: color.value || '#cccccc' }}
                                     onClick={(e) => {
                                       e.stopPropagation();
+                                      console.log('Color clicked:', color.name, 'for product:', product.id);
                                       setSelectedColors(prev => ({
                                         ...prev,
                                         [product.id]: color
@@ -548,14 +591,49 @@ export default function ShopProducts() {
                       </div>
                     </div>
 
+                    {/* Size Selection */}
+                    <div className="mb-3 sm:mb-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs sm:text-sm font-medium text-gray-600">Size:</span>
+                        <span className="text-xs sm:text-sm font-semibold">
+                          {selectedSizes[product.id] || 'Select Size'}
+                        </span>
+                      </div>
+                      <div className="flex gap-1 sm:gap-2">
+                        {product.sizes?.map((size: string, index: number) => {
+                          const isSelected = selectedSizes[product.id] === size;
+                          return (
+                            <button
+                              key={index}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                console.log('Size clicked:', size, 'for product:', product.id);
+                                setSelectedSizes(prev => ({
+                                  ...prev,
+                                  [product.id]: size
+                                }));
+                              }}
+                              className={`px-2 py-1 text-xs rounded border transition-all duration-200 ${
+                                isSelected 
+                                  ? 'bg-primary text-primary-foreground border-primary' 
+                                  : 'bg-background border-border hover:border-primary hover:bg-primary/10'
+                              }`}
+                            >
+                              {size}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
                     {/* Price */}
                     <div className="flex items-center gap-2 mb-3 sm:mb-4">
                       <span className="text-lg sm:text-xl font-bold text-primary">
-                        ${product.price}
+                        ₹{product.price}
                       </span>
                       {product.originalPrice && (
                         <span className="text-sm text-muted-foreground line-through">
-                          ${product.originalPrice}
+                          ₹{product.originalPrice}
                         </span>
                       )}
                     </div>

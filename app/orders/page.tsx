@@ -151,7 +151,7 @@ export default function OrdersPage() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-2xl font-bold">${order.total_order_value}</p>
+                          <p className="text-2xl font-bold">₹{order.total_order_value}</p>
                           <p className="text-sm text-muted-foreground">
                             {order.line_items?.length || 0} items
                           </p>
@@ -206,9 +206,9 @@ export default function OrdersPage() {
                                   <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
                                 </div>
                                 <div className="text-right">
-                                  <p className="font-semibold">${item.price}</p>
+                                  <p className="font-semibold">₹{item.price}</p>
                                   <p className="text-sm text-muted-foreground">
-                                    ${(parseFloat(item.price) * parseInt(item.quantity)).toFixed(2)} total
+                                    ₹{(parseFloat(item.price) * parseInt(item.quantity)).toFixed(2)} total
                                   </p>
                                 </div>
                               </div>

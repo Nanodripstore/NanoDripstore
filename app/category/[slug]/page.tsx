@@ -203,7 +203,7 @@ export default function CategoryPage({ params }: { params: { slug: string } | Pr
                             <div className="p-4">
                               <h3 className="font-medium text-lg mb-1 truncate">{product.name}</h3>
                               <p className="text-primary font-semibold mb-3">
-                                ${product.price.toFixed(2)}
+                                ₹{product.price.toFixed(2)}
                               </p>
                               <div className="flex items-center justify-between">
                                 <span className="text-sm text-muted-foreground">

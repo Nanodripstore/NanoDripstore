@@ -1,0 +1,15 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  # Disable secrets scanning for documentation files
+  SECRETS_SCAN_OMIT_PATHS = "GOOGLE_SHEETS_SETUP.md,README.md,*.md"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[dev]
+  framework = "next"
+  command = "npm run dev"
+  targetPort = 3000

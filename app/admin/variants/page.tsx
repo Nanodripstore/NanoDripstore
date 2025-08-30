@@ -435,7 +435,7 @@ export default function VariantsAdminPage() {
                         </div>
                         {variant.price && (
                           <div className="text-sm text-gray-500">
-                            Price: ${variant.price}
+                            Price: ₹{variant.price}
                           </div>
                         )}
                       </div>

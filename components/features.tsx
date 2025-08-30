@@ -13,7 +13,7 @@ const features = [
   {
     icon: Truck,
     title: 'Free Shipping',
-    description: 'Enjoy complimentary shipping on all orders over $75 with our fast and reliable delivery service.',
+    description: 'Enjoy complimentary shipping on all orders over ₹2000 with our fast and reliable delivery service.',
   },
   {
     icon: Shield,

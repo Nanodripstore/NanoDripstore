@@ -31,6 +31,8 @@ interface CartStore {
   setUser: (userId: string | null) => Promise<void>;
   syncWithDatabase: () => Promise<void>;
   forceRefresh: () => Promise<void>;
+  fixCartImages: () => Promise<void>;
+  smartSync: () => Promise<void>;
   syncSetQuantityInDatabase: (item: Omit<CartItem, 'quantity'>, quantity: number, retryCount?: number) => Promise<void>;
   syncRemoveFromDatabase: (productId: number, color: string, size: string, retryCount?: number) => Promise<void>;
 }
@@ -44,7 +46,10 @@ export const useCartStore = create<CartStore>()(
       isUpdating: false,
       debugMode: false,
       addItem: async (newItem, quantity = 1) => {
-        console.log('Cart store addItem called with quantity:', quantity);
+        console.log('=== CART STORE ADD ITEM ===');
+        console.log('Adding item to cart:', newItem);
+        console.log('With quantity:', quantity);
+        
         // To make UI more responsive, we'll update local state immediately
         // But we'll still use isUpdating to prevent double-clicks within a short timeframe (100ms)
         if (get().isUpdating) return;
@@ -86,6 +91,7 @@ export const useCartStore = create<CartStore>()(
         } else {
           console.log('New item, adding with quantity:', quantity);
           const newCartItem = { ...newItem, quantity: quantity };
+          console.log('Final cart item:', newCartItem);
           set({ items: [...items, newCartItem] });
           
           // Add to database in background if user is logged in
@@ -97,6 +103,7 @@ export const useCartStore = create<CartStore>()(
           }
         }
         console.log('Cart items after update:', get().items);
+        console.log('=== END CART STORE ADD ===');
       },
       removeItem: async (id, color, size, variantId) => {
         const currentItems = get().items;
@@ -251,7 +258,13 @@ export const useCartStore = create<CartStore>()(
       },
       syncWithDatabase: async () => {
         const userId = get().currentUserId;
-        if (!userId) return;
+        if (!userId) {
+          console.log('Cart sync skipped: No user ID');
+          return;
+        }
+
+        console.log('=== CART SYNC WITH DATABASE ===');
+        console.log('User ID:', userId);
 
         try {
           const response = await fetch('/api/user/cart');
@@ -266,6 +279,35 @@ export const useCartStore = create<CartStore>()(
             const storeItems: CartItem[] = dbCartItems.map((dbItem: any) => {
               const quantity = parseInt(dbItem.quantity) || 1;
               console.log(`Converting DB item: quantity=${dbItem.quantity} (type: ${typeof dbItem.quantity}) -> parsed=${quantity}`);
+              console.log(`DB item image: ${dbItem.image}, product images: ${dbItem.products?.images?.[0]}`);
+              console.log(`Item color: ${dbItem.color}, item name: ${dbItem.name}`);
+              
+              // Try to get the correct color-specific image
+              let colorSpecificImage = dbItem.image || '';
+              
+              // If we have product data with variants, try to find the correct color image
+              if (dbItem.products && dbItem.color && !colorSpecificImage) {
+                const productData = dbItem.products;
+                
+                // Check if product has variants with images
+                if (productData.variants && Array.isArray(productData.variants)) {
+                  const matchingVariant = productData.variants.find((variant: any) => 
+                    variant.colorName === dbItem.color
+                  );
+                  
+                  if (matchingVariant && matchingVariant.images && matchingVariant.images.length > 0) {
+                    colorSpecificImage = matchingVariant.images[0];
+                    console.log(`Found variant-specific image for ${dbItem.color}:`, colorSpecificImage);
+                  }
+                }
+                
+                // If no variant image found, fallback to first available image
+                if (!colorSpecificImage && productData.images && productData.images.length > 0) {
+                  colorSpecificImage = productData.images[0];
+                  console.log(`Using fallback image:`, colorSpecificImage);
+                }
+              }
+              
               return {
                 id: dbItem.productId,
                 name: dbItem.products?.name || 'Unknown Product',
@@ -273,7 +315,7 @@ export const useCartStore = create<CartStore>()(
                 color: dbItem.color || '',
                 size: dbItem.size || '',
                 quantity: quantity, // Parse as integer
-                image: dbItem.products?.images?.[0] || '',
+                image: colorSpecificImage || dbItem.products?.images?.[0] || '', // Use the color-specific image from API
                 type: dbItem.type || 'tshirt'
               };
             });
@@ -283,9 +325,141 @@ export const useCartStore = create<CartStore>()(
             // Update both state and localStorage
             set({ items: storeItems });
             localStorage.setItem(`cart-${userId}`, JSON.stringify(storeItems));
+          } else {
+            console.error('Cart sync failed with status:', response.status);
           }
         } catch (error) {
           console.error('Error syncing cart with database:', error);
+        }
+      },
+      fixCartImages: async () => {
+        console.log('=== FIXING CART IMAGES ===');
+        const items = get().items;
+        
+        if (items.length === 0) {
+          console.log('No cart items to fix');
+          return;
+        }
+        
+        try {
+          // Fetch current product data
+          const response = await fetch('/api/products/live');
+          if (!response.ok) {
+            console.error('Failed to fetch products for image fixing');
+            return;
+          }
+          
+          const data = await response.json();
+          const products = data.products || [];
+          
+          console.log('Fetched products for image fixing:', products.length);
+          
+          // Fix each cart item's image
+          const fixedItems = items.map(cartItem => {
+            // Find the product
+            let product = products.find((p: any) => p.id === cartItem.id);
+            
+            if (!product) {
+              console.log(`Product not found for cart item ${cartItem.id}`);
+              return cartItem;
+            }
+            
+            console.log(`Fixing image for ${cartItem.name} - ${cartItem.color}`);
+            
+            // Find the correct variant image for this color
+            let correctImage = cartItem.image; // Default to current image
+            
+            if (product.variants && Array.isArray(product.variants) && cartItem.color) {
+              const matchingVariant = product.variants.find((variant: any) => 
+                variant.colorName === cartItem.color
+              );
+              
+              if (matchingVariant && matchingVariant.images && matchingVariant.images.length > 0) {
+                correctImage = matchingVariant.images[0];
+                console.log(`Found correct image for ${cartItem.color}: ${correctImage}`);
+              } else {
+                console.log(`No variant image found for ${cartItem.color}`);
+              }
+            }
+            
+            return {
+              ...cartItem,
+              image: correctImage
+            };
+          });
+          
+          console.log('Fixed cart items:', fixedItems);
+          
+          // Update the cart with fixed images
+          set({ items: fixedItems });
+          
+          // Update localStorage if user is set
+          const userId = get().currentUserId;
+          if (userId) {
+            localStorage.setItem(`cart-${userId}`, JSON.stringify(fixedItems));
+          }
+          
+        } catch (error) {
+          console.error('Error fixing cart images:', error);
+        }
+      },
+      smartSync: async () => {
+        console.log('=== SMART SYNC ===');
+        const userId = get().currentUserId;
+        if (!userId) {
+          console.log('Smart sync skipped: No user ID');
+          return;
+        }
+
+        try {
+          const response = await fetch('/api/user/cart');
+          if (response.ok) {
+            const data = await response.json();
+            const dbCartItems = data.items || [];
+            
+            console.log('Smart sync - Raw database cart items:', dbCartItems);
+            
+            const currentItems = get().items;
+            console.log('Smart sync - Current cart items:', currentItems);
+            
+            // Merge database data with current items, preserving fixed images
+            const mergedItems = dbCartItems.map((dbItem: any) => {
+              // Find corresponding item in current cart
+              const currentItem = currentItems.find(item => 
+                item.id === dbItem.productId && 
+                item.color === dbItem.color && 
+                item.size === dbItem.size
+              );
+              
+              const quantity = parseInt(dbItem.quantity) || 1;
+              
+              // Use current item's image if it exists (preserves fixes), otherwise use DB image
+              const preservedImage = currentItem?.image || dbItem.image || '';
+              
+              console.log(`Smart sync - Item ${dbItem.productId}-${dbItem.color}: preserving image ${preservedImage}`);
+              
+              return {
+                id: dbItem.productId,
+                name: dbItem.products?.name || currentItem?.name || 'Unknown Product',
+                price: dbItem.products?.price || currentItem?.price || 0,
+                color: dbItem.color || '',
+                size: dbItem.size || '',
+                quantity: quantity,
+                image: preservedImage,
+                type: dbItem.type || 'tshirt'
+              };
+            });
+            
+            console.log('Smart sync - Merged items:', mergedItems);
+            
+            // Update state and localStorage
+            set({ items: mergedItems });
+            localStorage.setItem(`cart-${userId}`, JSON.stringify(mergedItems));
+          } else {
+            console.error('Smart sync failed with status:', response.status);
+          }
+        } catch (error) {
+          console.error('Error in smart sync:', error);
         }
       },
       forceRefresh: async () => {
@@ -304,6 +478,34 @@ export const useCartStore = create<CartStore>()(
             const storeItems: CartItem[] = dbCartItems.map((dbItem: any) => {
               const quantity = parseInt(dbItem.quantity) || 1;
               console.log(`Force refresh - Converting DB item: quantity=${dbItem.quantity} (type: ${typeof dbItem.quantity}) -> parsed=${quantity}`);
+              console.log(`Force refresh - Item color: ${dbItem.color}, item name: ${dbItem.name}`);
+              
+              // Try to get the correct color-specific image (same logic as syncWithDatabase)
+              let colorSpecificImage = dbItem.image || '';
+              
+              // If we have product data with variants, try to find the correct color image
+              if (dbItem.products && dbItem.color && !colorSpecificImage) {
+                const productData = dbItem.products;
+                
+                // Check if product has variants with images
+                if (productData.variants && Array.isArray(productData.variants)) {
+                  const matchingVariant = productData.variants.find((variant: any) => 
+                    variant.colorName === dbItem.color
+                  );
+                  
+                  if (matchingVariant && matchingVariant.images && matchingVariant.images.length > 0) {
+                    colorSpecificImage = matchingVariant.images[0];
+                    console.log(`Force refresh - Found variant-specific image for ${dbItem.color}:`, colorSpecificImage);
+                  }
+                }
+                
+                // If no variant image found, fallback to first available image
+                if (!colorSpecificImage && productData.images && productData.images.length > 0) {
+                  colorSpecificImage = productData.images[0];
+                  console.log(`Force refresh - Using fallback image:`, colorSpecificImage);
+                }
+              }
+              
               return {
                 id: dbItem.productId,
                 name: dbItem.products?.name || 'Unknown Product',
@@ -311,7 +513,7 @@ export const useCartStore = create<CartStore>()(
                 color: dbItem.color || '',
                 size: dbItem.size || '',
                 quantity: quantity, // Parse as integer
-                image: dbItem.products?.images?.[0] || '',
+                image: colorSpecificImage || dbItem.products?.images?.[0] || '',
                 type: dbItem.type || 'tshirt'
               };
             });

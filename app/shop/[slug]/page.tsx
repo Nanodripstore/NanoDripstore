@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import { useProductFromSheet } from "@/hooks/use-products";
 import { useWishlist } from "@/hooks/use-wishlist";
 import Link from "next/link";
-import OptimizedImage from "@/components/ui/optimized-image";
+import OptimizedImage from "@/components/simple-proxied-image";
 import { use } from "react";
 
 export default function ProductDetail({ params }: { params: { slug: string } | Promise<{ slug: string }> }) {
@@ -56,6 +56,7 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
   const [selectedSize, setSelectedSize] = useState<string>("");
   const [quantity, setQuantity] = useState<number>(1);
   const [currentImageIndex, setCurrentImageIndex] = useState<number>(0);
+  const [isImageLoading, setIsImageLoading] = useState<boolean>(false);
 
   // Set defaults when product loads
   useEffect(() => {
@@ -82,9 +83,13 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
     }
   }, [product]);
 
-  // State to track which images have loaded successfully
-  const [validImages, setValidImages] = useState<string[]>([]);
-  const [imageValidationComplete, setImageValidationComplete] = useState(false);
+  // Show loading when variant changes (color change)
+  useEffect(() => {
+    if (selectedVariant) {
+      setIsImageLoading(true);
+      setCurrentImageIndex(0);
+    }
+  }, [selectedVariant]);
 
   // Function to get images from the sheet data based on selected variant
   const getProductImages = (product: any, selectedVariant: any) => {
@@ -101,79 +106,7 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
 
   // Get current images from the sheet data
   const allPotentialImages = getProductImages(product, selectedVariant);
-  const currentImages = allPotentialImages; // Show all images directly without validation for now
-
-  // Effect to validate images when product or variant changes
-  useEffect(() => {
-    if (product && allPotentialImages.length > 0) {
-      setImageValidationComplete(false);
-      setValidImages([]);
-      
-      const validateImages = async () => {
-        const validImagesList: string[] = [];
-        
-        // Test each image sequentially to avoid race conditions
-        for (const imagePath of allPotentialImages) {
-          try {
-            await new Promise<void>((resolve, reject) => {
-              const img = new Image();
-              img.onload = () => {
-                validImagesList.push(imagePath);
-                resolve();
-              };
-              img.onerror = async () => {
-                // Try different extensions if the original fails
-                const extensions = ['.jpg', '.png', '.jpeg', '.webp'];
-                const basePath = imagePath.replace(/\.[^/.]+$/, ""); // Remove extension
-                
-                for (const ext of extensions) {
-                  try {
-                    await new Promise<void>((resolveExt, rejectExt) => {
-                      const imgExt = new Image();
-                      imgExt.onload = () => {
-                        validImagesList.push(basePath + ext);
-                        resolveExt();
-                      };
-                      imgExt.onerror = () => rejectExt();
-                      imgExt.src = basePath + ext;
-                    });
-                    break; // If successful, break out of extension loop
-                  } catch {
-                    continue; // Try next extension
-                  }
-                }
-                resolve(); // Continue to next image regardless
-              };
-              img.src = imagePath;
-              
-              // Timeout after 3 seconds
-              setTimeout(() => resolve(), 3000);
-            });
-          } catch (error) {
-            // Continue to next image
-          }
-        }
-        
-        // If no images found, use a placeholder or fallback
-        if (validImagesList.length === 0) {
-          // Add placeholder or try product-level images
-          if (product?.images && product.images.length > 0) {
-            validImagesList.push(product.images[0]);
-          }
-        }
-        
-        setValidImages(validImagesList);
-        setImageValidationComplete(true);
-      };
-      
-      validateImages();
-    }
-  }, [product, selectedVariant]);
-
-  // Reset current image index when product or variant changes
-  useEffect(() => {
-    setCurrentImageIndex(0);
-  }, [product, selectedVariant]);
+  const currentImages = allPotentialImages; // Use images directly from sheet data
 
   // Fetch wishlist when component mounts
   useEffect(() => {
@@ -221,7 +154,7 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
       }, quantity);
 
       toast.success(`Added ${quantity} × ${product.name} to cart!`, {
-        description: `Color: ${selectedVariant.colorName || selectedVariant.name} • Size: ${selectedSize} • Price: $${itemPrice.toFixed(2)}`,
+        description: `Color: ${selectedVariant.colorName || selectedVariant.name} • Size: ${selectedSize} • Price: ₹${itemPrice.toFixed(2)}`,
       });
     }
   };
@@ -355,32 +288,39 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="aspect-square bg-muted/30 rounded-lg overflow-hidden mb-4"
+              className="aspect-square bg-muted/30 rounded-lg overflow-hidden mb-4 relative"
             >
               {currentImages.length > 0 ? (
-                <img
-                  src={currentImages[currentImageIndex] || currentImages[0]}
-                  alt={`${product.name} - ${selectedVariant?.colorName || 'Default'}`}
-                  className="w-full h-full object-cover transition-opacity duration-300"
-                  onError={(e) => {
-                    // Try fallback to product default images
-                    const target = e.target as HTMLImageElement;
-                    if (product.images && product.images[0] && target.src !== product.images[0]) {
-                      target.src = product.images[0];
-                    }
-                  }}
-                />
+                <>
+                  <OptimizedImage
+                    key={`${selectedVariant?.colorName || 'default'}-${currentImageIndex}`}
+                    src={currentImages[currentImageIndex] || currentImages[0]}
+                    alt={`${product.name} - ${selectedVariant?.colorName || 'Default'}`}
+                    className={`w-full h-full object-cover transition-opacity duration-300 ${
+                      isImageLoading ? 'opacity-0' : 'opacity-100'
+                    }`}
+                    onLoad={() => setIsImageLoading(false)}
+                  />
+                  {isImageLoading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-muted/50 backdrop-blur-sm">
+                      <div className="flex flex-col items-center space-y-2">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                        <span className="text-sm text-muted-foreground">Loading image...</span>
+                      </div>
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="flex items-center justify-center h-full text-muted-foreground">
                   <div className="text-center">
                     <div className="text-4xl mb-2">📷</div>
-                    <div>{imageValidationComplete ? 'No images available' : 'Loading images...'}</div>
+                    <div>No images available</div>
                   </div>
                 </div>
               )}
             </motion.div>
             
-            {currentImages.length > 1 && imageValidationComplete && (
+            {currentImages.length > 1 && (
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -395,10 +335,13 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
                         ? 'ring-2 ring-primary shadow-lg' 
                         : 'hover:opacity-90 hover:scale-105'
                     }`}
-                    onClick={() => setCurrentImageIndex(i)}
+                    onClick={() => {
+                      setIsImageLoading(true);
+                      setCurrentImageIndex(i);
+                    }}
                     title={`View ${i + 1}`}
                   >
-                    <img 
+                    <OptimizedImage 
                       src={image} 
                       alt={`${product.name} - ${selectedVariant?.colorName} - view ${i + 1}`} 
                       className="w-full h-full object-cover"
@@ -453,11 +396,11 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
             {/* Price */}
             <div className="flex items-center gap-4 mb-6">
               <span className="text-2xl font-bold text-primary">
-                ${(selectedVariant?.price || product.price)?.toFixed(2)}
+                ₹{(selectedVariant?.price || product.price)?.toFixed(2)}
               </span>
               {selectedVariant?.price && selectedVariant.price !== product.price && (
                 <span className="text-lg text-muted-foreground line-through">
-                  ${product.price?.toFixed(2)}
+                  ₹{product.price?.toFixed(2)}
                 </span>
               )}
             </div>
@@ -476,15 +419,28 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
                 {(() => {
                   // Use variants if available, otherwise fall back to old color system
                   const colorOptions = product.variants && product.variants.length > 0
-                    ? product.variants.map((variant: any) => ({
-                        name: variant.colorName,
-                        value: variant.colorValue,
-                        variant: variant,
-                        price: variant.price,
-                        sku: variant.sku,
-                        stock: variant.stockQuantity,
-                        available: variant.isAvailable
-                      }))
+                    ? (() => {
+                        // Deduplicate colors from variants by color name
+                        const uniqueColors: any[] = [];
+                        const seenColors = new Set();
+                        
+                        product.variants.forEach((variant: any) => {
+                          if (!seenColors.has(variant.colorName)) {
+                            seenColors.add(variant.colorName);
+                            uniqueColors.push({
+                              name: variant.colorName,
+                              value: variant.colorValue,
+                              variant: variant,
+                              price: variant.price,
+                              sku: variant.sku,
+                              stock: variant.stockQuantity,
+                              available: variant.isAvailable
+                            });
+                          }
+                        });
+                        
+                        return uniqueColors;
+                      })()
                     : typeof product.colors === 'string' 
                       ? JSON.parse(product.colors || '[]') 
                       : product.colors || [];
@@ -510,10 +466,9 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
                               colorName: color.name, 
                               colorValue: color.value 
                             });
-                            setCurrentImageIndex(0); // Reset to first image when variant changes
                           }
                         }}
-                        title={`${color.name}${color.price ? ` - $${color.price.toFixed(2)}` : ''}${!isAvailable ? ' (Out of stock)' : ''}`}
+                        title={`${color.name}${color.price ? ` - ₹${color.price.toFixed(2)}` : ''}${!isAvailable ? ' (Out of stock)' : ''}`}
                       >
                         {isSelected && (
                           <Check className="h-5 w-5 text-white drop-shadow-md" />
@@ -622,17 +577,39 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
                     return;
                   }
                   
-                  if (!selectedVariant.sku && !(product as any).sku) {
-                    toast.error('Product not available for direct order - SKU missing');
+                  // Find the specific variant that matches both selected color and size
+                  const specificVariant = product.variants?.find((variant: any) => 
+                    variant.colorName === selectedVariant.colorName && 
+                    variant.size === selectedSize
+                  );
+                  
+                  if (!specificVariant?.sku && !(product as any).sku) {
+                    toast.error('Product not available for direct order - SKU missing for this color/size combination');
                     return;
                   }
                   
-                  // Use variant SKU and price if available, otherwise fall back to product defaults
-                  const orderSku = selectedVariant.sku || (product as any).sku;
-                  const orderPrice = selectedVariant.price || product.price;
+                  // Use specific variant SKU (color+size) if available, otherwise fall back to selected variant or product SKU
+                  const orderSku = specificVariant?.sku || selectedVariant.sku || (product as any).sku;
+                  const orderPrice = specificVariant?.price || selectedVariant.price || product.price;
+                  
+                  // Get the correct image for the selected variant
+                  let orderImage = '';
+                  if (specificVariant?.images && specificVariant.images.length > 0) {
+                    // Use specific variant image (color+size specific)
+                    orderImage = specificVariant.images[0];
+                  } else if (selectedVariant?.images && selectedVariant.images.length > 0) {
+                    // Use selected variant image (color specific)
+                    orderImage = selectedVariant.images[0];
+                  } else if (currentImages && currentImages.length > 0) {
+                    // Use current images being displayed
+                    orderImage = currentImages[0];
+                  } else if (product.images && product.images.length > 0) {
+                    // Fall back to product images
+                    orderImage = product.images[0];
+                  }
                   
                   // Navigate to checkout with product details
-                  const checkoutUrl = `/checkout?product=${product.id}&name=${encodeURIComponent(product.name)}&price=${orderPrice}&sku=${orderSku}&image=${encodeURIComponent(currentImages[0] || product.images[0] || '')}&color=${encodeURIComponent(selectedVariant.colorName)}&size=${encodeURIComponent(selectedSize)}`;
+                  const checkoutUrl = `/checkout?product=${product.id}&name=${encodeURIComponent(product.name)}&price=${orderPrice}&sku=${orderSku}&image=${encodeURIComponent(orderImage)}&color=${encodeURIComponent(selectedVariant.colorName)}&size=${encodeURIComponent(selectedSize)}`;
                   router.push(checkoutUrl);
                 }}
               >
@@ -821,7 +798,7 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
                       </div>
                       <div className="p-4">
                         <h3 className="font-medium truncate">{related.name}</h3>
-                        <p className="text-primary font-bold mt-1">${related.price?.toFixed(2)}</p>
+                        <p className="text-primary font-bold mt-1">₹{related.price?.toFixed(2)}</p>
                       </div>
                     </CardContent>
                   </Card>

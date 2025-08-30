@@ -192,7 +192,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Cart Value</p>
-                  <p className="text-2xl font-bold">${getTotalPrice().toFixed(2)}</p>
+                  <p className="text-2xl font-bold">₹{getTotalPrice().toFixed(2)}</p>
                 </div>
               </div>
             </CardContent>
@@ -279,7 +279,7 @@ export default function Dashboard() {
                               </Badge>
                             </div>
                             <div className="text-right">
-                              <p className="font-semibold">${order.total_order_value}</p>
+                              <p className="font-semibold">₹{order.total_order_value}</p>
                               <p className="text-sm text-muted-foreground">
                                 {order.line_items?.length || 0} items
                               </p>
@@ -321,7 +321,7 @@ export default function Dashboard() {
                                       <p className="text-muted-foreground">
                                         SKU: {item.sku} • Qty: {item.quantity}
                                       </p>
-                                      <p className="font-medium">${item.price}</p>
+                                      <p className="font-medium">₹{item.price}</p>
                                     </div>
                                   </div>
                                 ))}
@@ -358,23 +358,29 @@ export default function Dashboard() {
                     <div className="space-y-4">
                       {items.map((item) => (
                         <div key={`${item.id}-${item.color}-${item.size}`} className="flex items-center gap-4 p-4 border rounded-lg">
-                          <img
-                            src={item.image}
-                            alt={item.name}
-                            className="w-16 h-16 object-cover rounded"
-                          />
+                          {item.image ? (
+                            <img
+                              src={item.image}
+                              alt={item.name}
+                              className="w-16 h-16 object-cover rounded"
+                            />
+                          ) : (
+                            <div className="w-16 h-16 bg-muted rounded flex items-center justify-center">
+                              <span className="text-xs text-muted-foreground">No image</span>
+                            </div>
+                          )}
                           <div className="flex-1">
                             <h3 className="font-semibold">{item.name}</h3>
                             <p className="text-sm text-muted-foreground">
                               {item.color} • {item.size}
                             </p>
                           </div>
-                          <p className="font-semibold">${item.price}</p>
+                          <p className="font-semibold">₹{item.price}</p>
                         </div>
                       ))}
                       <div className="border-t pt-4">
                         <div className="flex justify-between items-center">
-                          <span className="text-lg font-semibold">Total: ${getTotalPrice().toFixed(2)}</span>
+                          <span className="text-lg font-semibold">Total: ₹{getTotalPrice().toFixed(2)}</span>
                           <Button>Proceed to Checkout</Button>
                         </div>
                       </div>
@@ -397,13 +403,19 @@ export default function Dashboard() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {wishlistItems.map((item) => (
                       <div key={item.id} className="border rounded-lg p-4">
-                        <img
-                          src={item.image}
-                          alt={item.name}
-                          className="w-full h-48 object-cover rounded mb-4"
-                        />
+                        {item.image ? (
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="w-full h-48 object-cover rounded mb-4"
+                          />
+                        ) : (
+                          <div className="w-full h-48 bg-muted rounded mb-4 flex items-center justify-center">
+                            <span className="text-sm text-muted-foreground">No image</span>
+                          </div>
+                        )}
                         <h3 className="font-semibold mb-2">{item.name}</h3>
-                        <p className="text-lg font-bold mb-4">${item.price}</p>
+                        <p className="text-lg font-bold mb-4">₹{item.price}</p>
                         <Button className="w-full">Add to Cart</Button>
                       </div>
                     ))}

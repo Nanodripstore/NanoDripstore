@@ -27,6 +27,15 @@ export default function OptimizedImage({
   const [isInView, setIsInView] = useState(priority);
   const imgRef = useRef<HTMLImageElement>(null);
 
+  // Handle empty or invalid src
+  if (!src || src.trim() === '') {
+    return (
+      <div className={cn('bg-gray-200 flex items-center justify-center text-gray-500 text-sm', className)}>
+        {alt || 'Image unavailable'}
+      </div>
+    );
+  }
+
   // Intersection Observer for lazy loading
   useEffect(() => {
     if (priority || isInView) return;

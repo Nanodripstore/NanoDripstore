@@ -548,7 +548,7 @@ export default function ProfilePage() {
                               </div>
                               <div>
                                 <p className="text-sm font-medium">Total</p>
-                                <p>${order.total.toFixed(2)}</p>
+                                <p>₹{order.total.toFixed(2)}</p>
                               </div>
                               <Button variant="outline" size="sm">
                                 View Details
@@ -596,7 +596,7 @@ export default function ProfilePage() {
                             </Button>
                           </div>
                           <h3 className="font-medium line-clamp-1">{item.name}</h3>
-                          <p className="font-medium text-lg mt-1">${item.price.toFixed(2)}</p>
+                          <p className="font-medium text-lg mt-1">₹{item.price.toFixed(2)}</p>
                           <Button className="w-full mt-3" size="sm">
                             Add to Cart
                           </Button>

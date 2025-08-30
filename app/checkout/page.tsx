@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
+import { SimpleProxiedImage } from '@/components/simple-proxied-image';
 
 export default function Checkout() {
   const { data: session } = useSession();
@@ -64,6 +65,8 @@ export default function Checkout() {
       const productPrice = urlParams.get('price');
       const productSku = urlParams.get('sku');
       const productImage = urlParams.get('image');
+      const productColor = urlParams.get('color');
+      const productSize = urlParams.get('size');
 
       if (productId && productName && productPrice && productSku) {
         setDirectOrderProduct({
@@ -71,7 +74,9 @@ export default function Checkout() {
           name: decodeURIComponent(productName),
           price: parseFloat(productPrice),
           sku: productSku,
-          image: productImage ? decodeURIComponent(productImage) : null
+          image: productImage ? decodeURIComponent(productImage) : null,
+          color: productColor ? decodeURIComponent(productColor) : 'Default',
+          size: productSize ? decodeURIComponent(productSize) : 'S'
         });
       }
       urlParamsProcessed.current = true;
@@ -606,20 +611,20 @@ export default function Checkout() {
                       // Direct order display
                       <div className="flex items-center gap-3">
                         <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-muted">
-                          <img
+                          <SimpleProxiedImage
                             src={directOrderProduct.image || '/placeholder.jpg'}
-                            alt={directOrderProduct.name}
+                            alt={`${directOrderProduct.name} - ${directOrderProduct.color}`}
                             className="w-full h-full object-cover"
                           />
                         </div>
                         <div className="flex-1 min-w-0">
                           <h4 className="font-medium truncate">{directOrderProduct.name}</h4>
                           <p className="text-sm text-muted-foreground">
-                            SKU: {directOrderProduct.sku} • Qty: 1
+                            {directOrderProduct.color} • {directOrderProduct.size} • Qty: 1
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="font-medium">${directOrderProduct.price.toFixed(2)}</p>
+                          <p className="font-medium">₹{directOrderProduct.price.toFixed(2)}</p>
                         </div>
                       </div>
                     ) : (
@@ -627,9 +632,9 @@ export default function Checkout() {
                       items.map((item) => (
                         <div key={`${item.id}-${item.color}-${item.size}`} className="flex items-center gap-3">
                           <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-muted">
-                            <img
+                            <SimpleProxiedImage
                               src={item.image}
-                              alt={item.name}
+                              alt={`${item.name} - ${item.color}`}
                               className="w-full h-full object-cover"
                             />
                           </div>
@@ -644,7 +649,7 @@ export default function Checkout() {
                             </p>
                           </div>
                           <div className="text-right">
-                            <p className="font-medium">${(item.price * item.quantity).toFixed(2)}</p>
+                            <p className="font-medium">₹{(item.price * item.quantity).toFixed(2)}</p>
                           </div>
                         </div>
                       ))
@@ -656,7 +661,7 @@ export default function Checkout() {
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span>Subtotal</span>
-                      <span>${directOrderProduct ? directOrderProduct.price.toFixed(2) : getTotalPrice().toFixed(2)}</span>
+                      <span>₹{directOrderProduct ? directOrderProduct.price.toFixed(2) : getTotalPrice().toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Shipping</span>
@@ -664,12 +669,12 @@ export default function Checkout() {
                     </div>
                     <div className="flex justify-between">
                       <span>Tax</span>
-                      <span>${directOrderProduct ? (directOrderProduct.price * 0.1).toFixed(2) : (getTotalPrice() * 0.1).toFixed(2)}</span>
+                      <span>₹{directOrderProduct ? (directOrderProduct.price * 0.1).toFixed(2) : (getTotalPrice() * 0.1).toFixed(2)}</span>
                     </div>
                     <Separator />
                     <div className="flex justify-between text-lg font-semibold">
                       <span>Total</span>
-                      <span>${directOrderProduct ? (directOrderProduct.price * 1.1).toFixed(2) : (getTotalPrice() * 1.1).toFixed(2)}</span>
+                      <span>₹{directOrderProduct ? (directOrderProduct.price * 1.1).toFixed(2) : (getTotalPrice() * 1.1).toFixed(2)}</span>
                     </div>
                   </div>
                 </CardContent>

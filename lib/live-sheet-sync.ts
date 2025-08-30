@@ -70,6 +70,7 @@ const sheetCache = new SheetCache();
 
 interface SheetRow {
   product_id: number;
+  original_id?: string; // Store original string ID for lookup
   name: string;
   description: string;
   category: string;
@@ -244,23 +245,23 @@ class LiveSheetSyncService {
     if (!isNaN(numericId) && numericId > 0) {
       productId = numericId;
     } else {
-      // If it's a string like "TSHIRT-001", we need to create a numeric mapping
-      // For now, we'll create a hash-based ID or use a sequential number
-      // You should update your sheet to use numeric IDs (1, 2, 3...) as requested
-      console.warn(`Non-numeric product_id found: "${rawProductId}". Please use numeric IDs (1, 2, 3...) in your sheet.`);
+      // If it's a string like "acid-washed-oversized", create a more reliable hash
+      console.warn(`Non-numeric product_id found: "${rawProductId}". Using enhanced hash mapping.`);
       
-      // Create a simple hash for consistency (temporary solution)
+      // Create a more reliable hash that's less likely to collide
       let hash = 0;
-      for (let i = 0; i < rawProductId.length; i++) {
-        const char = rawProductId.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
+      const str = rawProductId + (row[1]?.toString().trim() || ''); // Include name for uniqueness
+      for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 7) - hash) + char; // Different shift to reduce collisions
         hash = hash & hash; // Convert to 32bit integer
       }
-      productId = Math.abs(hash) % 10000 + 1; // Ensure positive number between 1-10000
+      productId = Math.abs(hash) % 100000 + 10000; // Ensure positive number between 10000-109999
     }
 
     return {
       product_id: productId,
+      original_id: rawProductId, // Store the original ID for lookup purposes
       name: row[1]?.toString().trim() || '',
       description: row[2]?.toString().trim() || '',
       category: row[3]?.toString().trim() || 'uncategorized',
@@ -680,6 +681,15 @@ class LiveSheetSyncService {
         baseVariant.image_url_4
       ]);
       
+      // Properly deduplicate colors by color name
+      const uniqueColors = variants.reduce((acc: any[], variant) => {
+        const existingColor = acc.find(c => c.name === variant.color_name);
+        if (!existingColor) {
+          acc.push({ name: variant.color_name, hex: variant.color_hex });
+        }
+        return acc;
+      }, []);
+      
       return {
         id: parseInt(productId),
         name: baseVariant.name,
@@ -706,7 +716,7 @@ class LiveSheetSyncService {
           images: this.getValidImages([v.image_url_1, v.image_url_2, v.image_url_3, v.image_url_4])
         })),
         sizes: [...new Set(variants.map(v => v.size))],
-        colors: [...new Set(variants.map(v => ({ name: v.color_name, hex: v.color_hex })))],
+        colors: uniqueColors,
         tags: baseVariant.tags ? baseVariant.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0) : [],
         createdAt: baseVariant.created_date,
         updatedAt: baseVariant.last_updated
@@ -714,13 +724,69 @@ class LiveSheetSyncService {
     });
   }
 
-  // Optimized image URL validation
+  // Optimized image URL validation and processing
   private getValidImages(urls: string[]): string[] {
-    return urls.filter(url => 
-      url && 
-      url.length > 0 && 
-      (url.startsWith('http') || url.startsWith('/'))
-    );
+    return urls
+      .filter(url => url && url.length > 0)
+      .map(url => this.processImageUrl(url))
+      .filter(url => url !== null) as string[];
+  }
+
+  // Enhanced image URL processor for Google Drive and other sources
+  private processImageUrl(url: string): string | null {
+    if (!url || url.trim().length === 0) {
+      return null;
+    }
+
+    const trimmedUrl = url.trim();
+
+    // If it's already a direct HTTP/HTTPS URL (not a Google Drive share link), return as is
+    if (trimmedUrl.startsWith('http') && !trimmedUrl.includes('drive.google.com/file/d/')) {
+      return trimmedUrl;
+    }
+
+    // Handle local paths (fallback for existing local images)
+    if (trimmedUrl.startsWith('/')) {
+      return trimmedUrl;
+    }
+
+    // Handle Google Drive shareable links
+    // Format: https://drive.google.com/file/d/FILE_ID/view?usp=sharing
+    const driveShareMatch = trimmedUrl.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (driveShareMatch) {
+      const fileId = driveShareMatch[1];
+      return `https://drive.google.com/uc?export=view&id=${fileId}`;
+    }
+
+    // Handle Google Drive direct view links (already optimized)
+    if (trimmedUrl.includes('drive.google.com/uc?')) {
+      return trimmedUrl;
+    }
+
+    // Handle bare Google Drive file IDs (28+ characters, alphanumeric with hyphens/underscores)
+    if (/^[a-zA-Z0-9_-]{28,}$/.test(trimmedUrl)) {
+      return `https://drive.google.com/uc?export=view&id=${trimmedUrl}`;
+    }
+
+    // Handle other cloud storage providers
+    // Cloudinary
+    if (trimmedUrl.includes('cloudinary.com')) {
+      return trimmedUrl;
+    }
+
+    // AWS S3
+    if (trimmedUrl.includes('amazonaws.com') || trimmedUrl.includes('s3.')) {
+      return trimmedUrl;
+    }
+
+    // Firebase Storage
+    if (trimmedUrl.includes('firebasestorage.googleapis.com')) {
+      return trimmedUrl;
+    }
+
+    // If we can't process it, log a warning and return null
+    console.warn(`Unable to process image URL: ${trimmedUrl}`);
+    return null;
   }
 
   // Method to clear cache when data is updated

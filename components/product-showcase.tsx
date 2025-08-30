@@ -13,6 +13,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from "sonner";
+import { SimpleProxiedImage } from '@/components/simple-proxied-image';
 
 export default function ProductShowcase() {
   const router = useRouter();
@@ -20,6 +21,7 @@ export default function ProductShowcase() {
   const { addItem } = useCartStore();
   const { wishlist, addToWishlist, removeFromWishlistByProductId, isInWishlist, fetchWishlist } = useWishlist();
   const [selectedColors, setSelectedColors] = useState<{ [productId: number]: any }>({});
+  const [selectedSizes, setSelectedSizes] = useState<{ [productId: number]: string }>({});
   const [refreshProducts, setRefreshProducts] = useState(process.env.NODE_ENV === 'production'); // Always true in production
   
   // Force refresh on component mount (page reload) - more aggressive in production
@@ -102,6 +104,62 @@ export default function ProductShowcase() {
     };
   }, [session?.user, fetchWishlist]);
 
+  // Initialize first color as default for each product
+  useEffect(() => {
+    if (data?.products) {
+      const newSelectedColors: { [productId: number]: any } = {};
+      const newSelectedSizes: { [productId: number]: string } = {};
+      
+      data.products.forEach((product: any) => {
+        // Initialize default color if not already set
+        if (!selectedColors[product.id]) {
+          // Use variants if available, otherwise fall back to old color system
+          if (product.variants && product.variants.length > 0) {
+            // Set first variant as default
+            const firstVariant = product.variants[0];
+            newSelectedColors[product.id] = {
+              name: firstVariant.colorName,
+              value: firstVariant.colorValue,
+              variant: firstVariant
+            };
+          } else {
+            // Fallback to old color system
+            const colors = typeof product.colors === 'string' 
+              ? JSON.parse(product.colors || '[]') 
+              : product.colors || [];
+            
+            if (colors.length > 0) {
+              newSelectedColors[product.id] = colors[0];
+            }
+          }
+        }
+        
+        // Initialize default size if not already set
+        if (!selectedSizes[product.id] && product.sizes && product.sizes.length > 0) {
+          // Prefer 'S' size if available, otherwise use first size
+          const preferredSize = product.sizes.includes('S') ? 'S' : product.sizes[0];
+          newSelectedSizes[product.id] = preferredSize;
+        }
+      });
+      
+      // Update colors if we have new ones to set
+      if (Object.keys(newSelectedColors).length > 0) {
+        setSelectedColors(prev => ({
+          ...prev,
+          ...newSelectedColors
+        }));
+      }
+      
+      // Update sizes if we have new ones to set
+      if (Object.keys(newSelectedSizes).length > 0) {
+        setSelectedSizes(prev => ({
+          ...prev,
+          ...newSelectedSizes
+        }));
+      }
+    }
+  }, [data?.products]);
+
   const handleAddToCart = (product: any, selectedVariant?: any) => {
     if (!session?.user) {
       toast.error('Please sign in to add items to cart', {
@@ -114,43 +172,78 @@ export default function ProductShowcase() {
       return;
     }
 
+    // Get selected color and size from state
+    const selectedColor = selectedColors[product.id];
+    const selectedSize = selectedSizes[product.id];
+
+    console.log('=== ADD TO CART DEBUG ===');
+    console.log('Original product:', product);
+    console.log('Selected color:', selectedColor);
+    console.log('Selected size:', selectedSize);
+    console.log('Selected variant:', selectedVariant);
+
+    // Require color and size selection for products with variants
+    if (product.variants && product.variants.length > 0 && !selectedColor) {
+      toast.error('Please select a color', {
+        description: 'You need to select a color before adding to cart',
+      });
+      return;
+    }
+
+    if (product.sizes && product.sizes.length > 0 && !selectedSize) {
+      toast.error('Please select a size', {
+        description: 'You need to select a size before adding to cart',
+      });
+      return;
+    }
+
     // Use variants if available, otherwise fall back to old color system
     let colorName, variantId, variantSku, variantPrice;
     
     if (product.variants && product.variants.length > 0) {
-      // Use selected variant or first available variant
-      const variant = selectedVariant || product.variants[0];
+      // Use selected variant or first available variant as fallback
+      const variant = selectedVariant || selectedColor?.variant || product.variants[0];
       colorName = variant.colorName;
       variantId = variant.id;
       variantSku = variant.sku;
       variantPrice = variant.price || product.price;
+      
+      console.log('Using variant:', variant);
     } else {
       // Fallback to old color system
       const colors = typeof product.colors === 'string' 
         ? JSON.parse(product.colors || '[]') 
         : product.colors || [];
-      colorName = colors[0]?.name || 'Default';
+      colorName = selectedColor?.name || colors[0]?.name || 'Default';
       variantPrice = product.price;
+      
+      console.log('Using old color system, colors:', colors);
     }
+
+    // Use selected size or fallback to default
+    const finalSize = selectedSize || (product.sizes?.includes('S') ? 'S' : product.sizes?.[0]) || 'S';
     
-    const defaultSize = product.sizes[2] || product.sizes[0] || 'M'; // Default to M size or first available
-    
-    addItem({
+    const cartItem = {
       id: product.id,
       name: product.name,
       price: variantPrice,
       color: colorName,
-      size: defaultSize,
+      size: finalSize,
       image: Array.isArray(product.images) && product.images.length > 0 
         ? product.images[0] 
         : '/placeholder-image.jpg',
       type: product.type as 'tshirt' | 'hoodie',
       variantId: variantId,
       sku: variantSku
-    });
+    };
+    
+    console.log('Cart item being added:', cartItem);
+    console.log('=== END DEBUG ===');
+    
+    addItem(cartItem);
     
     toast.success(`Added ${product.name} to cart!`, {
-      description: `Color: ${colorName} • Size: ${defaultSize} • Price: $${variantPrice.toFixed(2)}`,
+      description: `Color: ${colorName} • Size: ${finalSize} • Price: ₹${variantPrice.toFixed(2)}`,
     });
   };
 
@@ -305,33 +398,35 @@ export default function ProductShowcase() {
                         onClick={() => handleQuickView(product)}
                       >
                         {(() => {
-                          // Get selected color or default to first variant/color
+                          // Get selected color
                           const selectedColor = selectedColors[product.id];
-                          let imageToShow = product.images[0]; // Default image
+                          let imageToShow = product.images[0]; // Always start with default image
                           
-                          // If we have a selected color with variant and it has images, use those
-                          if (selectedColor?.variant?.images && selectedColor.variant.images.length > 0) {
-                            imageToShow = selectedColor.variant.images[0];
-                          }
-                          // If no variant images but we have a selected color, try to find matching image
-                          else if (selectedColor && Array.isArray(product.images) && product.images.length > 1) {
-                            // Try to find image index based on color selection
-                            const colors = product.variants && product.variants.length > 0
-                              ? product.variants.map((variant: any) => ({ name: variant.colorName, value: variant.colorValue, variant: variant }))
-                              : typeof product.colors === 'string' ? JSON.parse(product.colors || '[]') : product.colors || [];
-                            
-                            const colorIndex = colors.findIndex((color: any) => color.name === selectedColor.name);
-                            if (colorIndex >= 0 && colorIndex < product.images.length) {
-                              imageToShow = product.images[colorIndex];
+                          // Only change image if user has explicitly selected a color
+                          if (selectedColor) {
+                            // If we have a selected color with variant and it has images, use those
+                            if (selectedColor.variant?.images && selectedColor.variant.images.length > 0) {
+                              imageToShow = selectedColor.variant.images[0];
+                            }
+                            // If no variant images but we have a selected color, try to find matching image
+                            else if (Array.isArray(product.images) && product.images.length > 1) {
+                              // Try to find image index based on color selection
+                              const colors = product.variants && product.variants.length > 0
+                                ? product.variants.map((variant: any) => ({ name: variant.colorName, value: variant.colorValue, variant: variant }))
+                                : typeof product.colors === 'string' ? JSON.parse(product.colors || '[]') : product.colors || [];
+                              
+                              const colorIndex = colors.findIndex((color: any) => color.name === selectedColor.name);
+                              if (colorIndex >= 0 && colorIndex < product.images.length) {
+                                imageToShow = product.images[colorIndex];
+                              }
                             }
                           }
                           
                           return Array.isArray(product.images) && product.images.length > 0 ? (
-                            <img
+                            <SimpleProxiedImage
                               src={imageToShow}
-                              alt={`${product.name} - ${selectedColor?.name || 'Default'}`}
-                              className="w-full h-full object-cover transition-all duration-500 group-hover:scale-105"
-                              key={`${product.id}-${selectedColor?.name || 'default'}`} // Key for smooth transitions
+                              alt={`${product.name}${selectedColor ? ` - ${selectedColor.name}` : ''}`}
+                              className="w-full h-full transition-all duration-500 group-hover:scale-105"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center bg-muted">
@@ -386,11 +481,24 @@ export default function ProductShowcase() {
                           {(() => {
                             // Use variants if available, otherwise fall back to old color system
                             const colors = product.variants && product.variants.length > 0
-                              ? product.variants.map((variant: any) => ({
-                                  name: variant.colorName,
-                                  value: variant.colorValue,
-                                  variant: variant
-                                }))
+                              ? (() => {
+                                  // Deduplicate colors from variants by color name
+                                  const uniqueColors: any[] = [];
+                                  const seenColors = new Set();
+                                  
+                                  product.variants.forEach((variant: any) => {
+                                    if (!seenColors.has(variant.colorName)) {
+                                      seenColors.add(variant.colorName);
+                                      uniqueColors.push({
+                                        name: variant.colorName,
+                                        value: variant.colorValue,
+                                        variant: variant
+                                      });
+                                    }
+                                  });
+                                  
+                                  return uniqueColors;
+                                })()
                               : typeof product.colors === 'string' 
                                 ? JSON.parse(product.colors || '[]') 
                                 : product.colors || [];
@@ -409,8 +517,7 @@ export default function ProductShowcase() {
                             return (
                               <>
                                 {visibleColors.map((color: any, colorIndex: number) => {
-                                  const isSelected = selectedColor?.name === color.name || 
-                                    (!selectedColor && colorIndex === 0);
+                                  const isSelected = selectedColor?.name === color.name;
                                   
                                   return (
                                     <div
@@ -423,17 +530,13 @@ export default function ProductShowcase() {
                                       style={{ backgroundColor: color.value || '#cccccc' }}
                                       onClick={(e) => {
                                         e.stopPropagation();
+                                        console.log('Color clicked:', color.name, 'for product:', product.id);
                                         setSelectedColors(prev => ({
                                           ...prev,
                                           [product.id]: color
                                         }));
                                       }}
                                     >
-                                      {/* Selection indicator - improved */}
-                                      {isSelected && (
-                                        <div className="absolute inset-1 rounded-full border border-white/60" />
-                                      )}
-                                      
                                       {/* Inner glow effect on hover */}
                                       <div className="absolute inset-0 rounded-full bg-white/20 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                                     </div>
@@ -453,10 +556,45 @@ export default function ProductShowcase() {
                         </div>
                       </div>
 
+                      {/* Size Selection */}
+                      <div className="mb-3 sm:mb-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-xs sm:text-sm font-medium text-gray-600">Size:</span>
+                          <span className="text-xs sm:text-sm font-semibold">
+                            {selectedSizes[product.id] || 'Select Size'}
+                          </span>
+                        </div>
+                        <div className="flex gap-1 sm:gap-2">
+                          {product.sizes?.map((size: string, index: number) => {
+                            const isSelected = selectedSizes[product.id] === size;
+                            return (
+                              <button
+                                key={index}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  console.log('Size clicked:', size, 'for product:', product.id);
+                                  setSelectedSizes(prev => ({
+                                    ...prev,
+                                    [product.id]: size
+                                  }));
+                                }}
+                                className={`px-2 py-1 text-xs rounded border transition-all duration-200 ${
+                                  isSelected 
+                                    ? 'bg-primary text-primary-foreground border-primary' 
+                                    : 'bg-background border-border hover:border-primary hover:bg-primary/10'
+                                }`}
+                              >
+                                {size}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
                       {/* Price */}
                       <div className="flex items-center gap-2 mb-3 sm:mb-4">
                         <span className="text-lg sm:text-xl font-bold text-primary">
-                          ${product.price}
+                          ₹{product.price}
                         </span>
                       </div>
 

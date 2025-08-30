@@ -7,6 +7,7 @@ import { useCartStore } from '@/lib/cart-store';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useEffect } from 'react';
+import { SimpleProxiedImage } from '@/components/simple-proxied-image';
 
 export default function CartSidebar() {
   const router = useRouter();
@@ -57,7 +58,9 @@ export default function CartSidebar() {
                 </motion.div>
               ) : (
                 <div className="space-y-4">
-                  {items.map((item) => (
+                  {items.map((item) => {
+                    console.log('Cart sidebar displaying item:', item);
+                    return (
                     <motion.div
                       key={`${item.id}-${item.color}-${item.size}`}
                       initial={{ opacity: 0, x: 20 }}
@@ -65,11 +68,19 @@ export default function CartSidebar() {
                       exit={{ opacity: 0, x: -20 }}
                       className="flex gap-4 p-4 bg-secondary/20 rounded-lg"
                     >
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="w-16 h-16 object-cover rounded"
-                      />
+                      {item.image ? (
+                        <SimpleProxiedImage
+                          src={item.image}
+                          alt={item.name}
+                          width={64}
+                          height={64}
+                          className="w-16 h-16 object-cover rounded"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 bg-muted rounded flex items-center justify-center">
+                          <span className="text-xs text-muted-foreground">No image</span>
+                        </div>
+                      )}
                                             <div className="flex-1 min-w-0">
                         <h3 className="font-medium text-sm truncate">{item.name}</h3>
                         <p className="text-xs text-muted-foreground">
@@ -78,7 +89,7 @@ export default function CartSidebar() {
                         <p className="text-xs">
                           Qty={item.quantity}
                         </p>
-                        <p className="text-sm font-medium">${(item.price * item.quantity).toFixed(2)}</p>
+                        <p className="text-sm font-medium">₹{(item.price * item.quantity).toFixed(2)}</p>
                       </div>
                       <div className="flex flex-col items-end gap-2">
                         <Button
@@ -110,7 +121,8 @@ export default function CartSidebar() {
                         </div>
                       </div>
                     </motion.div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </AnimatePresence>
@@ -121,7 +133,7 @@ export default function CartSidebar() {
             <div className="border-t pt-4 space-y-4">
               <div className="flex justify-between items-center text-lg font-semibold">
                 <span>Total:</span>
-                <span>${total.toFixed(2)}</span>
+                <span>₹{total.toFixed(2)}</span>
               </div>
               <div className="space-y-2">
                 <Button 

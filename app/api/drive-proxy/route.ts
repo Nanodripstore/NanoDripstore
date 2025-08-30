@@ -18,22 +18,31 @@ export async function GET(request: NextRequest) {
       return new NextResponse('Invalid URL - only Google Drive URLs are supported', { status: 400 });
     }
 
-    console.log(`Proxying image: ${url}`);
+    // Extract file ID for consistent caching
+    const fileIdMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    const fileId = fileIdMatch ? fileIdMatch[1] : null;
+    
+    if (!fileId) {
+      return new NextResponse('Could not extract file ID from Google Drive URL', { status: 400 });
+    }
+
+    console.log(`Proxying image: ${url} (File ID: ${fileId})`);
 
     // Production-specific debugging
     if (process.env.NODE_ENV === 'production') {
       console.log('Production proxy request:', {
         url: url,
+        fileId: fileId,
         userAgent: request.headers.get('user-agent'),
         referer: request.headers.get('referer'),
         timestamp: new Date().toISOString()
       });
       
-      // Check cache first in production
-      const cacheKey = url;
+      // Check cache first in production using fileId as key
+      const cacheKey = fileId;
       const cached = imageCache.get(cacheKey);
       if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-        console.log('Returning cached image for:', url);
+        console.log('Returning cached image for file ID:', fileId);
         return new NextResponse(cached.data, {
           status: 200,
           headers: {
@@ -45,6 +54,7 @@ export async function GET(request: NextRequest) {
             'X-Proxy-Cache': 'HIT',
             'X-Proxy-Debug': 'enabled',
             'X-Proxy-Timestamp': new Date().toISOString(),
+            'X-File-ID': fileId,
           },
         });
       }
@@ -141,9 +151,9 @@ export async function GET(request: NextRequest) {
 
     console.log(`Successfully proxied image, size: ${imageBuffer.byteLength} bytes`);
 
-    // Cache in production for future requests
+    // Cache in production for future requests using fileId as key
     if (process.env.NODE_ENV === 'production') {
-      const cacheKey = url;
+      const cacheKey = fileId;
       imageCache.set(cacheKey, {
         data: imageBuffer,
         contentType: contentType,
@@ -160,11 +170,13 @@ export async function GET(request: NextRequest) {
     // Add additional headers for production debugging
     const responseHeaders: Record<string, string> = {
       'Content-Type': contentType,
-      'Cache-Control': 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800',
+      'Cache-Control': 'public, max-age=3600, s-maxage=3600, must-revalidate',
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET',
       'Access-Control-Allow-Headers': 'Content-Type',
       'X-Proxy-Cache': 'MISS',
+      'ETag': `"${fileId}-${Date.now()}"`,
+      'Vary': 'Accept, User-Agent',
     };
 
     // Add debug headers in production
@@ -172,6 +184,7 @@ export async function GET(request: NextRequest) {
       responseHeaders['X-Proxy-Debug'] = 'enabled';
       responseHeaders['X-Proxy-Timestamp'] = new Date().toISOString();
       responseHeaders['X-Proxy-Size'] = imageBuffer.byteLength.toString();
+      responseHeaders['X-File-ID'] = fileId;
     }
 
     // Return the image with appropriate headers

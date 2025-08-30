@@ -6,10 +6,10 @@ import LiveSheetSyncService from '@/lib/live-sheet-sync'
 import { convertGoogleDriveUrl } from '@/lib/utils'
 
 // Helper function to process image URLs
-function processImageUrls(urls: (string | null | undefined)[]): string[] {
+function processImageUrls(urls: (string | null | undefined)[], colorVariant?: string): string[] {
   return urls
     .filter((url): url is string => Boolean(url) && url.trim().length > 0)
-    .map(url => convertGoogleDriveUrl(url.trim()))
+    .map(url => convertGoogleDriveUrl(url.trim(), colorVariant))
     .filter(Boolean);
 }
 
@@ -90,13 +90,13 @@ export async function GET(req: Request) {
           productData.image_url_2,
           productData.image_url_3,
           productData.image_url_4
-        ])
+        ], cartItem.color)
       } : {
         id: cartItem.productId,
         name: cartItem.name || 'Unknown Product',
         description: '',
         price: cartItem.price || 0,
-        images: processImageUrls([cartItem.image])
+        images: processImageUrls([cartItem.image], cartItem.color)
       };
 
       // Select the correct image based on the cart item's color
@@ -163,7 +163,7 @@ export async function GET(req: Request) {
         description: finalProductData.description,
         price: finalProductData.price,
         images: finalProductData.images,
-        image: selectedImage || cartItem.image || '',
+        image: selectedImage ? convertGoogleDriveUrl(selectedImage, cartItem.color) : (cartItem.image || ''),
         products: finalProductData
       };
     });

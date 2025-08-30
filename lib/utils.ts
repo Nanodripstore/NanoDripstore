@@ -68,7 +68,7 @@ export function normalizeEmail(email: string): string {
  * Converts Google Drive sharing URLs to proxied URLs that avoid CORS issues
  * Uses a local Next.js API route to proxy the images server-side
  */
-export function convertGoogleDriveUrl(url: string): string {
+export function convertGoogleDriveUrl(url: string, colorVariant?: string): string {
   if (!url) return '';
   
   try {
@@ -97,7 +97,14 @@ export function convertGoogleDriveUrl(url: string): string {
 
     // Use the first URL format with our proxy
     const driveUrl = driveUrls[0];
-    return `/api/drive-proxy?url=${encodeURIComponent(driveUrl)}`;
+    let proxyUrl = `/api/drive-proxy?url=${encodeURIComponent(driveUrl)}`;
+    
+    // Add color variant as cache-busting parameter to ensure unique requests
+    if (colorVariant) {
+      proxyUrl += `&variant=${encodeURIComponent(colorVariant)}`;
+    }
+    
+    return proxyUrl;
   } catch (error) {
     console.warn('Error converting Google Drive URL:', error);
     return url;
@@ -105,8 +112,8 @@ export function convertGoogleDriveUrl(url: string): string {
 }
 
 // Alternative function name for compatibility
-export function getDriveDirectLink(url: string): string {
-  return convertGoogleDriveUrl(url);
+export function getDriveDirectLink(url: string, colorVariant?: string): string {
+  return convertGoogleDriveUrl(url, colorVariant);
 }
 
 /**

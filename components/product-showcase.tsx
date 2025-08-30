@@ -181,7 +181,7 @@ export default function ProductShowcase() {
       );
       
       if (matchingVariant && matchingVariant.images && matchingVariant.images.length > 0) {
-        return convertGoogleDriveUrl(matchingVariant.images[0]);
+        return convertGoogleDriveUrl(matchingVariant.images[0], colorName);
       }
       
       // If no exact match, use any variant with images (they should all have the same images for same color)
@@ -190,13 +190,13 @@ export default function ProductShowcase() {
       );
       
       if (variantWithImages) {
-        return convertGoogleDriveUrl(variantWithImages.images[0]);
+        return convertGoogleDriveUrl(variantWithImages.images[0], colorName);
       }
     }
     
     // Fallback to product-level images
     if (Array.isArray(product.images) && product.images.length > 0) {
-      return convertGoogleDriveUrl(product.images[0]);
+      return convertGoogleDriveUrl(product.images[0], colorName);
     }
     
     return '';
@@ -207,12 +207,12 @@ export default function ProductShowcase() {
     if (product.variants && product.variants.length > 0) {
       const firstVariant = product.variants[0];
       if (firstVariant.images && firstVariant.images.length > 0) {
-        return convertGoogleDriveUrl(firstVariant.images[0]);
+        return convertGoogleDriveUrl(firstVariant.images[0], firstVariant.colorName);
       }
     }
     
     if (Array.isArray(product.images) && product.images.length > 0) {
-      return convertGoogleDriveUrl(product.images[0]);
+      return convertGoogleDriveUrl(product.images[0], 'default');
     }
     
     return '';

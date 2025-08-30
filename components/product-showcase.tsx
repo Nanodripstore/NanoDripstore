@@ -168,6 +168,56 @@ export default function ProductShowcase() {
     }
   }, [data?.products]); // Remove selectedColors from dependency to avoid circular dependency
 
+  // Helper function to get image for a specific color/variant
+  const getImageForColor = (product: any, colorName: string) => {
+    // Debug logging for production
+    if (process.env.NODE_ENV === 'production') {
+      console.log('getImageForColor called:', { productId: product.id, colorName });
+    }
+    
+    // First try to find the variant with the exact color name
+    if (product.variants && product.variants.length > 0) {
+      const matchingVariant = product.variants.find((variant: any) => 
+        variant.colorName === colorName
+      );
+      
+      if (matchingVariant && matchingVariant.images && matchingVariant.images.length > 0) {
+        const imageUrl = convertGoogleDriveUrl(matchingVariant.images[0]);
+        if (process.env.NODE_ENV === 'production') {
+          console.log('Found matching variant image:', imageUrl);
+        }
+        return imageUrl;
+      }
+      
+      // If no exact match, use any variant with images (they should all have the same images for same color)
+      const variantWithImages = product.variants.find((variant: any) => 
+        variant.images && variant.images.length > 0
+      );
+      
+      if (variantWithImages) {
+        const imageUrl = convertGoogleDriveUrl(variantWithImages.images[0]);
+        if (process.env.NODE_ENV === 'production') {
+          console.log('Using any variant image:', imageUrl);
+        }
+        return imageUrl;
+      }
+    }
+    
+    // Fallback to product-level images
+    if (Array.isArray(product.images) && product.images.length > 0) {
+      const imageUrl = convertGoogleDriveUrl(product.images[0]);
+      if (process.env.NODE_ENV === 'production') {
+        console.log('Using product-level image:', imageUrl);
+      }
+      return imageUrl;
+    }
+    
+    if (process.env.NODE_ENV === 'production') {
+      console.log('No image found for color:', colorName);
+    }
+    return '';
+  };
+
   // Helper function to get default image for a product (used during SSR)
   const getDefaultImageForProduct = (product: any) => {
     // Debug logging for production
@@ -447,44 +497,13 @@ export default function ProductShowcase() {
                             });
                           }
                           
-                          // Determine image to show based on available data
+                          // Determine image to show based on selected color
                           if (selectedColor) {
-                            // If we have a selected color with variant and it has images, use those
-                            if (selectedColor.variant?.images && selectedColor.variant.images.length > 0) {
-                              imageToShow = convertGoogleDriveUrl(selectedColor.variant.images[0]);
-                              if (process.env.NODE_ENV === 'production') {
-                                console.log('Using variant image:', imageToShow);
-                              }
-                            }
-                            // If no variant images but we have a selected color, try to find matching image
-                            else if (Array.isArray(product.images) && product.images.length > 1) {
-                              // Try to find image index based on color selection
-                              const colors = product.variants && product.variants.length > 0
-                                ? product.variants.map((variant: any) => ({ name: variant.colorName, value: variant.colorValue, variant: variant }))
-                                : typeof product.colors === 'string' ? JSON.parse(product.colors || '[]') : product.colors || [];
-                              
-                              const colorIndex = colors.findIndex((color: any) => color.name === selectedColor.name);
-                              
-                              if (process.env.NODE_ENV === 'production') {
-                                console.log('Color matching result:', {
-                                  colors: colors.map(c => c.name),
-                                  selectedColorName: selectedColor.name,
-                                  colorIndex,
-                                  availableImages: product.images.length
-                                });
-                              }
-                              
-                              if (colorIndex >= 0 && colorIndex < product.images.length) {
-                                imageToShow = convertGoogleDriveUrl(product.images[colorIndex]);
-                                if (process.env.NODE_ENV === 'production') {
-                                  console.log('Using color-matched image:', imageToShow);
-                                }
-                              } else {
-                                // Fallback to first image if color not found
-                                imageToShow = getDefaultImageForProduct(product);
-                              }
-                            } else {
-                              // Fallback to default image
+                            // Use the robust color-based image selection
+                            imageToShow = getImageForColor(product, selectedColor.name);
+                            
+                            // Fallback to default if no color-specific image found
+                            if (!imageToShow) {
                               imageToShow = getDefaultImageForProduct(product);
                             }
                           } else {

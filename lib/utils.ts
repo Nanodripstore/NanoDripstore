@@ -63,3 +63,39 @@ export function normalizeEmail(email: string): string {
   
   return `${normalizedUsername}@${domain}`;
 }
+
+/**
+ * Converts Google Drive sharing URLs to direct access URLs for image display
+ * Handles both /file/d/ and /open?id= formats
+ */
+export function convertGoogleDriveUrl(url: string): string {
+  if (!url) return url;
+  
+  // If it's already in the correct format, return as-is
+  if (url.includes('drive.google.com/uc?export=view&id=')) {
+    return url;
+  }
+  
+  // Extract file ID from various Google Drive URL formats
+  let fileId = '';
+  
+  // Format: https://drive.google.com/file/d/FILE_ID/view?usp=sharing
+  const fileIdMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (fileIdMatch) {
+    fileId = fileIdMatch[1];
+  }
+  
+  // Format: https://drive.google.com/open?id=FILE_ID
+  const openIdMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (openIdMatch) {
+    fileId = openIdMatch[1];
+  }
+  
+  // If we found a file ID, convert to direct access URL
+  if (fileId) {
+    return `https://drive.google.com/uc?export=view&id=${fileId}`;
+  }
+  
+  // If no conversion possible, return original URL
+  return url;
+}

@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from "sonner";
 import { SimpleProxiedImage } from '@/components/simple-proxied-image';
+import { convertGoogleDriveUrl } from '@/lib/utils';
 
 export default function ProductShowcase() {
   const router = useRouter();
@@ -169,12 +170,12 @@ export default function ProductShowcase() {
     if (product.variants && product.variants.length > 0) {
       const firstVariant = product.variants[0];
       if (firstVariant.images && firstVariant.images.length > 0) {
-        return firstVariant.images[0];
+        return convertGoogleDriveUrl(firstVariant.images[0]);
       }
     }
     
     if (Array.isArray(product.images) && product.images.length > 0) {
-      return product.images[0];
+      return convertGoogleDriveUrl(product.images[0]);
     }
     
     return '';
@@ -426,7 +427,7 @@ export default function ProductShowcase() {
                           if (selectedColor) {
                             // If we have a selected color with variant and it has images, use those
                             if (selectedColor.variant?.images && selectedColor.variant.images.length > 0) {
-                              imageToShow = selectedColor.variant.images[0];
+                              imageToShow = convertGoogleDriveUrl(selectedColor.variant.images[0]);
                             }
                             // If no variant images but we have a selected color, try to find matching image
                             else if (Array.isArray(product.images) && product.images.length > 1) {
@@ -438,7 +439,7 @@ export default function ProductShowcase() {
                               const colorIndex = colors.findIndex((color: any) => color.name === selectedColor.name);
                               
                               if (colorIndex >= 0 && colorIndex < product.images.length) {
-                                imageToShow = product.images[colorIndex];
+                                imageToShow = convertGoogleDriveUrl(product.images[colorIndex]);
                               } else {
                                 // Fallback to first image if color not found
                                 imageToShow = getDefaultImageForProduct(product);

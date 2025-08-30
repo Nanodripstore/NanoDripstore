@@ -1,6 +1,7 @@
 import { google } from 'googleapis';
 import { PrismaClient } from '@prisma/client';
 import https from 'https';
+import { convertGoogleDriveUrl } from './utils';
 
 // Fix SSL issues on Windows
 if (process.env.NODE_ENV !== 'production') {
@@ -740,32 +741,17 @@ class LiveSheetSyncService {
 
     const trimmedUrl = url.trim();
 
-    // If it's already a direct HTTP/HTTPS URL (not a Google Drive share link), return as is
-    if (trimmedUrl.startsWith('http') && !trimmedUrl.includes('drive.google.com/file/d/')) {
-      return trimmedUrl;
+    // Use the shared utility function to convert Google Drive URLs
+    const convertedUrl = convertGoogleDriveUrl(trimmedUrl);
+    
+    // If conversion happened (URL changed), return the converted URL
+    if (convertedUrl !== trimmedUrl) {
+      return convertedUrl;
     }
 
     // Handle local paths (fallback for existing local images)
     if (trimmedUrl.startsWith('/')) {
       return trimmedUrl;
-    }
-
-    // Handle Google Drive shareable links
-    // Format: https://drive.google.com/file/d/FILE_ID/view?usp=sharing
-    const driveShareMatch = trimmedUrl.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
-    if (driveShareMatch) {
-      const fileId = driveShareMatch[1];
-      return `https://drive.google.com/uc?export=view&id=${fileId}`;
-    }
-
-    // Handle Google Drive direct view links (already optimized)
-    if (trimmedUrl.includes('drive.google.com/uc?')) {
-      return trimmedUrl;
-    }
-
-    // Handle bare Google Drive file IDs (28+ characters, alphanumeric with hyphens/underscores)
-    if (/^[a-zA-Z0-9_-]{28,}$/.test(trimmedUrl)) {
-      return `https://drive.google.com/uc?export=view&id=${trimmedUrl}`;
     }
 
     // Handle other cloud storage providers

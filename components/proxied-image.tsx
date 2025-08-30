@@ -47,11 +47,8 @@ export function ProxiedImage({
     );
   }
 
-  // Use proxy for Google Drive images, direct URL for others
-  const shouldProxy = src.includes('drive.google.com');
-  const imageSrc = shouldProxy 
-    ? `/api/image-proxy?url=${encodeURIComponent(src)}`
-    : src;
+  // Use direct URLs - no proxy needed for Google Drive direct access URLs
+  const imageSrc = src;
 
   // Double check that imageSrc is valid
   if (!imageSrc || imageSrc.trim() === '') {
@@ -66,24 +63,23 @@ export function ProxiedImage({
     );
   }
 
-  console.log('ProxiedImage:', { 
+  console.log('DirectImage:', { 
     original: src, 
-    proxied: imageSrc,
-    shouldProxy,
+    direct: imageSrc,
     alt 
   });
 
   const handleLoad = () => {
     setIsLoading(false);
     onLoad?.();
-    console.log('Proxied image loaded successfully:', imageSrc);
+    console.log('Direct image loaded successfully:', imageSrc);
   };
 
   const handleError = () => {
     setIsLoading(false);
     setHasError(true);
     onError?.();
-    console.error('Proxied image failed to load:', imageSrc);
+    console.error('Direct image failed to load:', imageSrc);
   };
 
   // Fallback image for errors
@@ -128,7 +124,7 @@ export function ProxiedImage({
         style={style}
         onLoad={handleLoad}
         onError={handleError}
-        unoptimized={shouldProxy} // Don't optimize proxied images
+        unoptimized={true} // Use unoptimized for Google Drive direct URLs
       />
     </div>
   );

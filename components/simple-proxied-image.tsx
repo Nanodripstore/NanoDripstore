@@ -35,38 +35,26 @@ export function SimpleProxiedImage({
     );
   }
 
-  // Use proxy for Google Drive images, direct URL for others
-  const shouldProxy = src.includes('drive.google.com');
-  
-  // Add cache busting for production to ensure fresh images
-  let imageSrc = shouldProxy 
-    ? `/api/image-proxy?url=${encodeURIComponent(src)}`
-    : src;
-    
-  // Add cache busting parameter in production
-  if (shouldProxy && process.env.NODE_ENV === 'production') {
-    const cacheBuster = Math.floor(Date.now() / (1000 * 60 * 5)); // Change every 5 minutes
-    imageSrc += `&cb=${cacheBuster}`;
-  }
+  // Use direct URLs - no proxy needed for Google Drive direct access URLs
+  const imageSrc = src;
 
-  console.log('SimpleProxiedImage:', { 
+  console.log('SimpleDirectImage:', { 
     original: src, 
-    proxied: imageSrc,
-    shouldProxy,
+    direct: imageSrc,
     alt 
   });
 
   const handleLoad = () => {
     setIsLoading(false);
     onLoad?.();
-    console.log('Simple proxied image loaded successfully:', imageSrc);
+    console.log('Direct image loaded successfully:', imageSrc);
   };
 
   const handleError = (e: any) => {
     setIsLoading(false);
     setHasError(true);
     onError?.();
-    console.error('Simple proxied image failed to load:', imageSrc, e);
+    console.error('Direct image failed to load:', imageSrc, e);
   };
 
   // Fallback image for errors

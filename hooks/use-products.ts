@@ -4,7 +4,11 @@ interface ProductVariant {
   id: number;
   productId: number;
   colorName: string;
-  colorValue: string;
+  colorV    staleTime: process.env.NODE_ENV === 'production' ? 0 : 5 * 60 * 1000, // Always fresh in production, 5 minutes in dev
+    gcTime: process.env.NODE_ENV === 'production' ? 0 : 1 * 60 * 1000, // No cache in production, 1 minute in dev
+    refetchOnWindowFocus: process.env.NODE_ENV === 'production', // Enable refetch on focus in production only
+    refetchInterval: process.env.NODE_ENV === 'production' ? 30 * 1000 : (refresh ? false : 1 * 60 * 1000), // 30s in production, 1 minute in dev
+    retry: 1 string;
   sku: string;
   price?: number;
   stockQuantity: number;
@@ -134,8 +138,10 @@ export function useProductsFromSheet({
       searchParams.append('sortBy', sortBy);
       searchParams.append('sortOrder', sortOrder);
       if (refresh) searchParams.append('refresh', 'true'); // Add cache busting
-      // Add timestamp to force fresh data on page reload
-      searchParams.append('t', Date.now().toString());
+      // Add timestamp to force fresh data on page reload in production
+      if (process.env.NODE_ENV === 'production') {
+        searchParams.append('t', Date.now().toString());
+      }
 
       const response = await fetch(`/api/products/live?${searchParams.toString()}`);
       if (!response.ok) {

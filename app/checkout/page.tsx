@@ -49,10 +49,8 @@ export default function Checkout() {
 
     // Force refresh cart when checkout page loads to ensure latest data
     const refreshCart = async () => {
-      console.log('Checkout page: Force refreshing cart...');
       await forceRefresh();
       setCartLoaded(true);
-      console.log('Checkout page: Cart refreshed, items:', items);
     };
     
     refreshCart();

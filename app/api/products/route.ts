@@ -16,9 +16,8 @@ export async function GET(req: Request) {
       const product = await db.products.findUnique({
         where: { id: parseInt(productId) },
         include: {
-          wishlist_items: true,
-          cart_items: true,
-          order_items: true
+          order_items: true,
+          variants: true
         }
       })
       

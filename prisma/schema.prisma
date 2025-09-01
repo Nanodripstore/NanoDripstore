@@ -101,7 +101,7 @@ model cart_items {
   id        String   @id
   userId    String
   productId Int
-  variantId Int?     @map("variant_id") // Reference to product_variants
+  variantId Int?     @map("variant_id") // Reference to product_variants (no foreign key)
   quantity  Int      @default(1)
   color     String   // Standardized color name
   size      String
@@ -112,9 +112,7 @@ model cart_items {
   sku       String?  // Original Qikink SKU from variant
   createdAt DateTime @default(now())
   updatedAt DateTime
-  products  products @relation(fields: [productId], references: [id])
   users     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  variant   product_variants? @relation(fields: [variantId], references: [id])
 
   @@unique([userId, productId, variantId]) // Use variantId for uniqueness
 }
@@ -172,9 +170,7 @@ model products {
   reviews        Int              @default(0)
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
-  cart_items     cart_items[]
   order_items    order_items[]
-  wishlist_items wishlist_items[]
   variants       product_variants[] // One-to-many relationship with variants
 }
 
@@ -192,7 +188,6 @@ model product_variants {
   
   // Relations
   product        products @relation(fields: [productId], references: [id], onDelete: Cascade)
-  cart_items     cart_items[]
   
   @@map("product_variants")
   @@unique([productId, colorName]) // Prevent duplicate colors for same product
@@ -201,9 +196,13 @@ model product_variants {
 model wishlist_items {
   id        String   @id
   userId    String
-  productId Int
+  productId Int      // Keep for compatibility, but store product data directly
+  name      String   // Store product name directly
+  price     Float    // Store product price directly
+  image     String   // Store product image directly
+  type      String   // Store product type (tshirt/hoodie)
+  category  String?  // Store product category
   createdAt DateTime @default(now())
-  products  products @relation(fields: [productId], references: [id])
   users     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, productId])

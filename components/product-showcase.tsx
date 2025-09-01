@@ -277,7 +277,7 @@ export default function ProductShowcase() {
     }
 
     // Use selected size or fallback to default
-    const finalSize = selectedSize || (product.sizes?.includes('S') ? 'S' : product.sizes?.[0]) || 'S';
+    const finalSize = selectedSize || product.sizes?.[0] || 'M';
     
     const cartItem = {
       id: product.id,
@@ -288,9 +288,7 @@ export default function ProductShowcase() {
       image: Array.isArray(product.images) && product.images.length > 0 
         ? product.images[0] 
         : '/placeholder-image.jpg',
-      type: product.type as 'tshirt' | 'hoodie',
-      variantId: variantId,
-      sku: variantSku
+      type: product.type as 'tshirt' | 'hoodie'
     };
     
     addItem(cartItem);
@@ -317,7 +315,13 @@ export default function ProductShowcase() {
     if (isInWishlist(productId)) {
       await removeFromWishlistByProductId(productId);
     } else {
-      await addToWishlist(productId);
+      await addToWishlist(productId, {
+        name: product.name || product.title || product.product_name || 'Unknown Product',
+        price: product.price || product.selling_price || 0,
+        image: product.image || product.images?.[0] || product.image_url || '/placeholder.png',
+        type: product.type || product.category || 'tshirt',
+        category: product.category || product.product_type || null
+      });
     }
   };
 
@@ -675,6 +679,7 @@ export default function ProductShowcase() {
                             
                             // Get the selected variant or default to first variant
                             let selectedColor = selectedColors[product.id];
+                            const selectedSize = selectedSizes[product.id];
                             
                             // If no variant is selected but product has variants, use the first variant as default
                             if (!selectedColor && product.variants && product.variants.length > 0) {
@@ -703,13 +708,17 @@ export default function ProductShowcase() {
                               variantInfo = `&variant=${encodeURIComponent(selectedColor.name || selectedColor.variant.colorName || selectedColor.variant.name || 'Variant')}`;
                             }
                             
+                            // Add color and size parameters to URL
+                            const colorParam = selectedColor ? encodeURIComponent(selectedColor.name || selectedColor.variant?.colorName || 'Default') : 'Default';
+                            const sizeParam = selectedSize || product.sizes?.[0] || 'S';
+                            
                             if (!orderSku) {
                               toast.error('Product not available for direct order');
                               return;
                             }
                             
-                            // Navigate to checkout with product/variant details
-                            const checkoutUrl = `/checkout?product=${product.id}&name=${encodeURIComponent(orderName)}&price=${product.price}&sku=${orderSku}&image=${encodeURIComponent(orderImage)}${variantInfo}`;
+                            // Navigate to checkout with product/variant details including color and size
+                            const checkoutUrl = `/checkout?product=${product.id}&name=${encodeURIComponent(orderName)}&price=${product.price}&sku=${orderSku}&image=${encodeURIComponent(orderImage)}&color=${colorParam}&size=${encodeURIComponent(sizeParam)}${variantInfo}`;
                             router.push(checkoutUrl);
                           }}
                           className="flex-1 text-xs sm:text-sm py-2 sm:py-3 hover:scale-105 transition-all duration-200"

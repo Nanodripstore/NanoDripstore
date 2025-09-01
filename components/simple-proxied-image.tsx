@@ -63,17 +63,9 @@ export function SimpleProxiedImage({
     }
   }, [imageSrc]);
 
-  console.log('ProxiedDriveImage:', { 
-    original: src, 
-    proxied: imageSrc,
-    alt,
-    retryCount
-  });
-
   const handleLoad = () => {
     setIsLoading(false);
     onLoad?.();
-    console.log('Proxied drive image loaded successfully:', currentSrc);
   };
 
   const handleError = (e: any) => {
@@ -92,7 +84,6 @@ export function SimpleProxiedImage({
         ];
         
         if (fallbackUrls[retryCount]) {
-          console.log(`Trying ImageKit fallback URL ${retryCount + 1}:`, fallbackUrls[retryCount]);
           setCurrentSrc(fallbackUrls[retryCount]);
           setRetryCount(retryCount + 1);
           setIsLoading(true);

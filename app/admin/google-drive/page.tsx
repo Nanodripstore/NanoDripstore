@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { ProxiedImage } from '@/components/proxied-image';
+import { SimpleProxiedImage } from '@/components/simple-proxied-image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { convertGoogleDriveUrl, getSafeImageUrl } from '@/lib/utils';
 
 export default function GoogleDriveManagerPage() {
   const [testUrl, setTestUrl] = useState('');
@@ -29,12 +30,12 @@ export default function GoogleDriveManagerPage() {
     if (!testUrl.trim()) return;
 
     try {
-      const response = await fetch(`/api/image-proxy?url=${encodeURIComponent(testUrl)}`);
+      const convertedUrl = convertGoogleDriveUrl(testUrl);
       const result = {
         url: testUrl,
-        status: response.status,
-        ok: response.ok,
-        contentType: response.headers.get('content-type'),
+        convertedUrl,
+        status: convertedUrl ? 'Converted' : 'Failed',
+        ok: !!convertedUrl,
         timestamp: new Date().toLocaleTimeString()
       };
       
@@ -96,13 +97,12 @@ export default function GoogleDriveManagerPage() {
                 <div key={index} className={`p-2 rounded text-sm ${result.ok ? 'bg-green-100' : 'bg-red-100'}`}>
                   <div className="font-mono text-xs break-all">{result.url}</div>
                   <div>Status: {result.status} | Time: {result.timestamp}</div>
-                  {result.ok && (
-                    <div className="mt-2">
-                      <ProxiedImage
-                        src={result.url}
+                  {result.ok && result.convertedUrl && (
+                    <div className="mt-2 space-y-1">
+                      <div className="text-xs text-blue-600">Converted to: {result.convertedUrl}</div>
+                      <SimpleProxiedImage
+                        src={result.convertedUrl}
                         alt="Test result"
-                        width={100}
-                        height={100}
                         className="object-cover rounded"
                       />
                     </div>
@@ -140,11 +140,9 @@ export default function GoogleDriveManagerPage() {
                   <div className="grid grid-cols-2 gap-2">
                     {product.images?.slice(0, 4).map((imageUrl: string, index: number) => (
                       <div key={index} className="relative">
-                        <ProxiedImage
-                          src={imageUrl}
+                        <SimpleProxiedImage
+                          src={getSafeImageUrl(imageUrl)}
                           alt={`${product.name} image ${index + 1}`}
-                          width={120}
-                          height={120}
                           className="object-cover rounded"
                         />
                         <div className="absolute bottom-0 left-0 bg-black/70 text-white text-xs px-1">

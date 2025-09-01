@@ -10,6 +10,32 @@ if (process.env.NODE_ENV !== 'production') {
 
 const prisma = new PrismaClient();
 
+// Function to normalize category names for grouping while preserving original case
+const getCategoryInfo = (category: string): { normalized: string, original: string } => {
+  if (!category) return { normalized: 'uncategorized', original: 'Uncategorized' }
+  
+  const normalized = category.toLowerCase().trim()
+  const original = category.trim() // Preserve original case
+  
+  // Handle hoodie variations - return original case but group under same normalized key
+  if (normalized.includes('hoodie') || normalized.includes('sweatshirt')) {
+    return { normalized: 'hoodies', original }
+  }
+  
+  // Handle t-shirt variations
+  if (normalized.includes('t-shirt') || normalized.includes('tshirt') || normalized.includes('tee')) {
+    return { normalized: 't-shirts', original }
+  }
+  
+  // Handle jacket variations
+  if (normalized.includes('jacket') || normalized.includes('varsity')) {
+    return { normalized: 'jackets', original }
+  }
+  
+  // Return normalized version for grouping, original for display
+  return { normalized, original }
+}
+
 // Configure SSL for Google API requests on Windows
 const httpsAgent = new https.Agent({
   rejectUnauthorized: process.env.NODE_ENV === 'production',
@@ -522,16 +548,13 @@ class LiveSheetSyncService {
       let allProducts = sheetCache.get(cacheKey);
       
       if (!allProducts) {
-        console.log(`Cache miss for key: ${cacheKey}, fetching from Google Sheets...`);
-        console.log(`Environment: ${process.env.NODE_ENV}, Sheet ID: ${this.spreadsheetId?.substring(0, 10)}...`);
-        
+        console.log('📊 Cache miss - fetching fresh data from Google Sheets...');
         if (!this.spreadsheetId) {
           throw new Error('LIVE_SHEET_ID not configured');
         }
 
         // Optimize: Get spreadsheet info only once per instance
         if (!this.cachedSheetName) {
-          console.log('Fetching spreadsheet metadata...');
           const spreadsheetInfo = await this.sheets.spreadsheets.get({
             spreadsheetId: this.spreadsheetId,
           });
@@ -542,11 +565,9 @@ class LiveSheetSyncService {
           }
           
           this.cachedSheetName = firstSheet.properties?.title || 'Sheet1';
-          console.log(`Using sheet: ${this.cachedSheetName}`);
         }
 
         // Read data with optimized range
-        console.log(`Reading data from range: ${this.cachedSheetName}!A2:U1000`);
         const response = await this.sheets.spreadsheets.values.get({
           spreadsheetId: this.spreadsheetId,
           range: `${this.cachedSheetName}!A2:U1000`, // Use cached sheet name
@@ -555,10 +576,8 @@ class LiveSheetSyncService {
         });
 
         const rows = response.data.values;
-        console.log(`Fetched ${rows?.length || 0} rows from Google Sheets`);
         
         if (!rows || rows.length === 0) {
-          console.log('No data found in sheet, returning empty result');
           return {
             products: [],
             pagination: { total: 0, pages: 0, current: page, hasNext: false, hasPrev: false }
@@ -583,20 +602,16 @@ class LiveSheetSyncService {
           }
         }
 
-        console.log(`Parsed ${parsedRows.length} valid rows (${parseErrors} errors)`);
-
         // Group by product_id and convert to product format
         const productGroups = this.groupRowsByProductOptimized(parsedRows);
         allProducts = this.convertToProductFormat(productGroups);
 
-        console.log(`Converted to ${allProducts.length} products`);
-
         // Cache the processed products with very short TTL for real-time updates
         const cacheTime = process.env.NODE_ENV === 'production' ? 2 * 60 * 1000 : 1 * 60 * 1000; // 2 minutes in production, 1 minute in dev
         sheetCache.set(cacheKey, allProducts, cacheTime);
-        console.log(`Cached ${allProducts.length} products for ${cacheTime / 1000} seconds`);
+        console.log('💾 Fresh data cached for future requests');
       } else {
-        console.log(`Cache hit for key: ${cacheKey}, returning ${allProducts.length} cached products`);
+        console.log('🚀 Using cached data (cache hit)');
       }
 
       // Apply filters and sorting on cached data
@@ -612,9 +627,13 @@ class LiveSheetSyncService {
         );
       }
 
-      // Filter by category
+      // Filter by category with normalization
       if (category) {
-        filteredProducts = filteredProducts.filter(product => product.category === category);
+        const { normalized: requestedCategory } = getCategoryInfo(category);
+        filteredProducts = filteredProducts.filter(product => {
+          const { normalized: productCategory } = getCategoryInfo(product.category || '');
+          return productCategory === requestedCategory;
+        });
       }
 
       // Sort products

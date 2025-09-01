@@ -183,7 +183,13 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
         await removeFromWishlist(wishlistItem.id);
       }
     } else {
-      await addToWishlist(product.id.toString());
+      await addToWishlist(product.id.toString(), {
+        name: product.name || product.title || product.product_name || 'Unknown Product',
+        price: product.price || product.selling_price || 0,
+        image: product.images?.[0] || product.image || product.image_url || '/placeholder.png',
+        type: product.type || product.category || 'tshirt',
+        category: product.category || product.product_type || null
+      });
     }
   };
 

@@ -37,17 +37,7 @@ export async function PATCH(
 
     // Check if cart item exists and belongs to the user
     const cartItem = await db.cart_items.findUnique({
-      where: { id: cartItemId },
-      include: {
-        products: {
-          select: {
-            id: true,
-            name: true,
-            price: true,
-            images: true
-          }
-        }
-      }
+      where: { id: cartItemId }
     })
 
     if (!cartItem) {
@@ -58,29 +48,10 @@ export async function PATCH(
       return Response.json({ error: 'Not authorized to update this item' }, { status: StatusCodes.FORBIDDEN })
     }
 
-    // Verify item exists
-    if (!cartItem.products) {
-      return Response.json({ 
-        error: 'Product not available'
-      }, {
-        status: StatusCodes.BAD_REQUEST
-      })
-    }
-
     // Update the cart item
     const updatedCartItem = await db.cart_items.update({
       where: { id: cartItemId },
-      data: { quantity },
-      include: {
-        products: {
-          select: {
-            id: true,
-            name: true,
-            price: true,
-            images: true
-          }
-        }
-      }
+      data: { quantity }
     })
 
     return Response.json(updatedCartItem)

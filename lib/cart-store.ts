@@ -46,10 +46,6 @@ export const useCartStore = create<CartStore>()(
       isUpdating: false,
       debugMode: false,
       addItem: async (newItem, quantity = 1) => {
-        console.log('=== CART STORE ADD ITEM ===');
-        console.log('Adding item to cart:', newItem);
-        console.log('With quantity:', quantity);
-        
         // To make UI more responsive, we'll update local state immediately
         // But we'll still use isUpdating to prevent double-clicks within a short timeframe (100ms)
         if (get().isUpdating) return;
@@ -70,7 +66,6 @@ export const useCartStore = create<CartStore>()(
         // Update local state immediately
         if (existingItem) {
           const newQuantity = existingItem.quantity + quantity;
-          console.log('Existing item found, updating quantity from', existingItem.quantity, 'to', newQuantity);
           const updatedItems = items.map(item =>
             item.id === newItem.id && 
             item.color === newItem.color && 
@@ -89,9 +84,7 @@ export const useCartStore = create<CartStore>()(
               .catch(err => console.error('Background cart sync failed:', err));
           }
         } else {
-          console.log('New item, adding with quantity:', quantity);
           const newCartItem = { ...newItem, quantity: quantity };
-          console.log('Final cart item:', newCartItem);
           set({ items: [...items, newCartItem] });
           
           // Add to database in background if user is logged in
@@ -102,8 +95,6 @@ export const useCartStore = create<CartStore>()(
               .catch(err => console.error('Background cart sync failed:', err));
           }
         }
-        console.log('Cart items after update:', get().items);
-        console.log('=== END CART STORE ADD ===');
       },
       removeItem: async (id, color, size, variantId) => {
         const currentItems = get().items;
@@ -190,7 +181,9 @@ export const useCartStore = create<CartStore>()(
               method: 'DELETE',
               headers: {
                 'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache, no-store, must-revalidate'
               },
+              cache: 'no-store'
             });
             
             if (!response.ok) {
@@ -267,20 +260,20 @@ export const useCartStore = create<CartStore>()(
         console.log('User ID:', userId);
 
         try {
-          const response = await fetch('/api/user/cart');
+          const response = await fetch('/api/user/cart', {
+            cache: 'no-store',
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate'
+            }
+          });
           if (response.ok) {
             const data = await response.json();
             // The API returns { items: cartItems[], subtotal, count }
             const dbCartItems = data.items || [];
             
-            console.log('Raw database cart items:', dbCartItems);
-            
             // Convert database format to store format
             const storeItems: CartItem[] = dbCartItems.map((dbItem: any) => {
               const quantity = parseInt(dbItem.quantity) || 1;
-              console.log(`Converting DB item: quantity=${dbItem.quantity} (type: ${typeof dbItem.quantity}) -> parsed=${quantity}`);
-              console.log(`DB item image: ${dbItem.image}, product images: ${dbItem.products?.images?.[0]}`);
-              console.log(`Item color: ${dbItem.color}, item name: ${dbItem.name}`);
               
               // Try to get the correct color-specific image
               let colorSpecificImage = dbItem.image && dbItem.image.trim() !== '' ? dbItem.image : null;

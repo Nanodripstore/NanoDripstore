@@ -1,32 +1,31 @@
-import { NextRequest, NextResponse } from 'next/server';
-
 // Simple in-memory cache for production to avoid repeated requests to Google Drive
 const imageCache = new Map<string, { data: ArrayBuffer; contentType: string; timestamp: number }>();
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour
 
-export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  let url = searchParams.get('url');
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const searchParams = url.searchParams;
+  let targetUrl = searchParams.get('url');
   
-  if (!url) {
-    return new NextResponse('Missing URL parameter', { status: 400 });
+  if (!targetUrl) {
+    return new Response('Missing URL parameter', { status: 400 });
   }
 
   try {
     // Validate that it's a Google Drive URL
-    if (!url.includes('drive.google.com')) {
-      return new NextResponse('Invalid URL - only Google Drive URLs are supported', { status: 400 });
+    if (!targetUrl.includes('drive.google.com')) {
+      return new Response('Invalid URL - only Google Drive URLs are supported', { status: 400 });
     }
 
     // Extract file ID for consistent caching
-    const fileIdMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    const fileIdMatch = targetUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
     const fileId = fileIdMatch ? fileIdMatch[1] : null;
     
     if (!fileId) {
-      return new NextResponse('Could not extract file ID from Google Drive URL', { status: 400 });
+      return new Response('Could not extract file ID from Google Drive URL', { status: 400 });
     }
 
-    console.log(`Proxying image: ${url} (File ID: ${fileId})`);
+    console.log(`Proxying image: ${targetUrl} (File ID: ${fileId})`);
 
     // Production-specific debugging
     if (process.env.NODE_ENV === 'production') {
@@ -43,7 +42,7 @@ export async function GET(request: NextRequest) {
       const cached = imageCache.get(cacheKey);
       if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
         console.log('Returning cached image for file ID:', fileId);
-        return new NextResponse(cached.data, {
+        return new Response(cached.data, {
           status: 200,
           headers: {
             'Content-Type': cached.contentType,
@@ -76,7 +75,7 @@ export async function GET(request: NextRequest) {
         
         const userAgent = userAgents[attempt % userAgents.length];
         
-        response = await fetch(url, {
+        response = await fetch(targetUrl, {
           headers: {
             'User-Agent': userAgent,
             'Accept': 'image/*,*/*;q=0.8',
@@ -102,18 +101,18 @@ export async function GET(request: NextRequest) {
           
           // If we get a 403 or 429, try different URL formats
           if ((response.status === 403 || response.status === 429) && attempt < maxRetries) {
-            const fileId = url.match(/[-\w]{25,}/)?.[0];
-            if (fileId) {
+            const fileIdFromUrl = targetUrl.match(/[-\w]{25,}/)?.[0];
+            if (fileIdFromUrl) {
               // Try different Google Drive URL formats
               const alternativeUrls = [
-                `https://drive.google.com/uc?export=view&id=${fileId}`,
-                `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`,
-                `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`
+                `https://drive.google.com/uc?export=view&id=${fileIdFromUrl}`,
+                `https://drive.google.com/thumbnail?id=${fileIdFromUrl}&sz=w800`,
+                `https://drive.google.com/thumbnail?id=${fileIdFromUrl}&sz=w400`
               ];
               
-              if (alternativeUrls[attempt - 1] && alternativeUrls[attempt - 1] !== url) {
-                url = alternativeUrls[attempt - 1];
-                console.log(`Trying alternative URL format: ${url}`);
+              if (alternativeUrls[attempt - 1] && alternativeUrls[attempt - 1] !== targetUrl) {
+                targetUrl = alternativeUrls[attempt - 1];
+                console.log(`Trying alternative URL format: ${targetUrl}`);
                 continue;
               }
             }
@@ -138,7 +137,7 @@ export async function GET(request: NextRequest) {
 
     if (!response || !response.ok) {
       console.error('All retry attempts failed:', lastError?.message || 'Unknown error');
-      return new NextResponse('Failed to fetch image after multiple attempts', { 
+      return new Response('Failed to fetch image after multiple attempts', { 
         status: response?.status || 500 
       });
     }
@@ -188,13 +187,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Return the image with appropriate headers
-    return new NextResponse(imageBuffer, {
+    return new Response(imageBuffer, {
       status: 200,
       headers: responseHeaders,
     });
 
   } catch (error: any) {
     console.error('Error proxying image:', error);
-    return new NextResponse(`Internal server error: ${error.message}`, { status: 500 });
+    return new Response(`Internal server error: ${error.message}`, { status: 500 });
   }
 }

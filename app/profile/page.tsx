@@ -121,26 +121,11 @@ export default function ProfilePage() {
     try {
       setLoading(true)
       
-      const cacheKey = `userData_${session?.user?.email}`
-      
-      if (!forceRefresh && typeof window !== 'undefined') {
-        const cached = sessionStorage.getItem(cacheKey)
-        if (cached) {
-          const cachedData = JSON.parse(cached)
-          if (Date.now() - cachedData.timestamp < 2 * 60 * 1000) { // 2 minutes cache
-            setUserData(cachedData.data)
-            setFormData({
-              name: cachedData.data.name || '',
-              phone: cachedData.data.phone || ''
-            })
-            setLoading(false)
-            return
-          }
-        }
-      }
-      
       const response = await fetch('/api/user/profile', {
-        cache: 'no-store'
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        }
       })
       
       if (response.ok) {
@@ -150,14 +135,6 @@ export default function ProfilePage() {
           name: data.name || '',
           phone: data.phone || ''
         })
-        
-        // Cache the data
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem(cacheKey, JSON.stringify({
-            data,
-            timestamp: Date.now()
-          }))
-        }
       }
     } catch (error) {
       console.error('Error fetching user data:', error)
@@ -574,9 +551,9 @@ export default function ProfilePage() {
               </TabsContent>
               
               <TabsContent value="wishlist" className="mt-6">
-                {userData?.wishlist && userData.wishlist.length > 0 ? (
+                {userData?.wishlist && Array.isArray(userData.wishlist) && userData.wishlist.length > 0 ? (
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {userData.wishlist.map((item) => (
+                    {userData.wishlist.map((item, index) => (
                       <Card key={item.id}>
                         <CardContent className="p-4">
                           <div className="relative h-48 w-full mb-4">

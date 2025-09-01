@@ -24,7 +24,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { SimpleProxiedImage } from '@/components/simple-proxied-image';
 import Link from 'next/link';
 
-export default function ShopProducts() {
+export default function ShopProducts({ initialCategory }: { initialCategory?: string }) {
   const router = useRouter();
   const { addItem } = useCartStore();
   const { data: session } = useSession();
@@ -64,7 +64,7 @@ export default function ShopProducts() {
   
   // States for filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState(initialCategory || 'all');
   const [sortOption, setSortOption] = useState('createdAt:desc');
   const [refreshProducts, setRefreshProducts] = useState(process.env.NODE_ENV === 'production'); // Always true in production
   const [selectedColors, setSelectedColors] = useState<{ [productId: number]: any }>({});
@@ -125,12 +125,6 @@ export default function ShopProducts() {
     const selectedColor = selectedColors[product.id];
     const selectedSize = selectedSizes[product.id];
 
-    console.log('=== SHOP ADD TO CART DEBUG ===');
-    console.log('Original product:', product);
-    console.log('Selected color:', selectedColor);
-    console.log('Selected size:', selectedSize);
-    console.log('Selected variant:', selectedVariant);
-
     // Require color and size selection for products with variants
     if (product.variants && product.variants.length > 0 && !selectedColor) {
       toast.error('Please select a color', {
@@ -157,31 +151,34 @@ export default function ShopProducts() {
       }
     } else if (selectedColor) {
       colorName = selectedColor.name || 'Default';
-      console.log('Using selectedColor logic. Color name:', colorName);
-      console.log('selectedColor object:', selectedColor);
-      console.log('selectedColor.variant:', selectedColor.variant);
       
       // If variant has images, use those
       if (selectedColor.variant?.images && selectedColor.variant.images.length > 0) {
         productImage = selectedColor.variant.images[0];
-        console.log('Found variant-specific image:', productImage);
       }
       // Otherwise try to find matching image by color index
       else if (Array.isArray(product.images) && product.images.length > 1) {
-        console.log('Falling back to color index mapping');
         const colors = product.variants && product.variants.length > 0
-          ? product.variants.map((variant: any) => ({ name: variant.colorName, value: variant.colorValue, variant: variant }))
+          ? (() => {
+              // Deduplicate colors from variants by color name
+              const uniqueColors: any[] = [];
+              const seenColors = new Set();
+              
+              product.variants.forEach((variant: any) => {
+                if (!seenColors.has(variant.colorName)) {
+                  seenColors.add(variant.colorName);
+                  uniqueColors.push({ name: variant.colorName, value: variant.colorValue, variant: variant });
+                }
+              });
+              
+              return uniqueColors;
+            })()
           : typeof product.colors === 'string' ? JSON.parse(product.colors || '[]') : product.colors || [];
         
-        console.log('Colors for index mapping:', colors);
         const colorIndex = colors.findIndex((color: any) => color.name === selectedColor.name);
-        console.log('Color index found:', colorIndex, 'for color:', selectedColor.name);
         if (colorIndex >= 0 && colorIndex < product.images.length) {
           productImage = product.images[colorIndex];
-          console.log('Using color index image:', productImage);
         }
-      } else {
-        console.log('No color-specific image logic applied');
       }
     } else {
       // Parse JSON colors if it's a string for default
@@ -210,8 +207,6 @@ export default function ShopProducts() {
       type: product.type
     };
     
-    console.log('Cart item being added:', cartItem);
-    console.log('=== END SHOP DEBUG ===');
     
     addItem(cartItem);
     
@@ -243,7 +238,13 @@ export default function ShopProducts() {
     if (isInWishlist(productId)) {
       await removeFromWishlistByProductId(productId);
     } else {
-      await addToWishlist(productId);
+      await addToWishlist(productId, {
+        name: product.name || product.title || product.product_name || 'Unknown Product',
+        price: product.price || product.selling_price || 0,
+        image: product.image || product.images?.[0] || product.image_url || '/placeholder.png',
+        type: product.type || product.category || 'tshirt',
+        category: product.category || product.product_type || null
+      });
     }
   };
   
@@ -458,7 +459,20 @@ export default function ShopProducts() {
                           else if (validImages.length > 1) {
                             // Try to find image index based on color selection
                             const colors = product.variants && product.variants.length > 0
-                              ? product.variants.map((variant: any) => ({ name: variant.colorName, value: variant.colorValue, variant: variant }))
+                              ? (() => {
+                                  // Deduplicate colors from variants by color name
+                                  const uniqueColors: any[] = [];
+                                  const seenColors = new Set();
+                                  
+                                  product.variants.forEach((variant: any) => {
+                                    if (!seenColors.has(variant.colorName)) {
+                                      seenColors.add(variant.colorName);
+                                      uniqueColors.push({ name: variant.colorName, value: variant.colorValue, variant: variant });
+                                    }
+                                  });
+                                  
+                                  return uniqueColors;
+                                })()
                               : typeof product.colors === 'string' ? JSON.parse(product.colors || '[]') : product.colors || [];
                             
                             const colorIndex = colors.findIndex((color: any) => color.name === selectedColor.name);
@@ -532,11 +546,24 @@ export default function ShopProducts() {
                         {(() => {
                           // Use variants if available, otherwise fall back to old color system
                           const colors = product.variants && product.variants.length > 0
-                            ? product.variants.map((variant: any) => ({
-                                name: variant.colorName,
-                                value: variant.colorValue,
-                                variant: variant
-                              }))
+                            ? (() => {
+                                // Deduplicate colors from variants by color name
+                                const uniqueColors: any[] = [];
+                                const seenColors = new Set();
+                                
+                                product.variants.forEach((variant: any) => {
+                                  if (!seenColors.has(variant.colorName)) {
+                                    seenColors.add(variant.colorName);
+                                    uniqueColors.push({
+                                      name: variant.colorName,
+                                      value: variant.colorValue,
+                                      variant: variant
+                                    });
+                                  }
+                                });
+                                
+                                return uniqueColors;
+                              })()
                             : typeof product.colors === 'string' 
                               ? JSON.parse(product.colors || '[]') 
                               : product.colors || [];
@@ -568,7 +595,6 @@ export default function ShopProducts() {
                                     style={{ backgroundColor: color.value || '#cccccc' }}
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      console.log('Color clicked:', color.name, 'for product:', product.id);
                                       setSelectedColors(prev => ({
                                         ...prev,
                                         [product.id]: color
@@ -621,7 +647,6 @@ export default function ShopProducts() {
                               key={index}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                console.log('Size clicked:', size, 'for product:', product.id);
                                 setSelectedSizes(prev => ({
                                   ...prev,
                                   [product.id]: size

@@ -53,7 +53,6 @@
     "out",
     "app/api/qikink/track",
     "app/qikink-test",
-    "hooks/use-order-tracking.ts",
-    "test-api-endpoints.ts"
+    "hooks/use-order-tracking.ts"
   ]
 }

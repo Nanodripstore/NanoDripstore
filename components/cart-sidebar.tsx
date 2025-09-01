@@ -59,7 +59,6 @@ export default function CartSidebar() {
               ) : (
                 <div className="space-y-4">
                   {items.map((item) => {
-                    console.log('Cart sidebar displaying item:', item);
                     return (
                     <motion.div
                       key={`${item.id}-${item.color}-${item.size}`}
@@ -72,8 +71,6 @@ export default function CartSidebar() {
                         <SimpleProxiedImage
                           src={item.image}
                           alt={item.name}
-                          width={64}
-                          height={64}
                           className="w-16 h-16 object-cover rounded"
                         />
                       ) : (

@@ -1,12 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
-
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
-    const searchParams = request.nextUrl.searchParams;
+    const url = new URL(request.url);
+    const searchParams = url.searchParams;
     const testUrl = searchParams.get('testUrl');
     
     // Basic diagnostics
-    const diagnostics = {
+    const diagnostics: any = {
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV,
       hasSheetId: !!process.env.LIVE_SHEET_ID,
@@ -30,7 +29,7 @@ export async function GET(request: NextRequest) {
         };
 
         // Try to fetch the image through the proxy
-        const fullProxyUrl = `${request.nextUrl.origin}${proxyUrl}`;
+        const fullProxyUrl = `${url.origin}${proxyUrl}`;
         console.log('Testing proxy fetch:', fullProxyUrl);
         
         const startTime = Date.now();
@@ -77,7 +76,8 @@ export async function GET(request: NextRequest) {
       const proxyUrl = `/api/drive-proxy?url=${encodeURIComponent(`https://drive.google.com/uc?export=download&id=${url.match(/[-\w]{25,}/)?.[0]}`)}`;
       
       try {
-        const fullProxyUrl = `${request.nextUrl.origin}${proxyUrl}`;
+        const requestUrl = new URL(request.url);
+        const fullProxyUrl = `${requestUrl.origin}${proxyUrl}`;
         const response = await fetch(fullProxyUrl, {
           method: 'HEAD', // Just check headers, don't download full image
           signal: AbortSignal.timeout(5000)
@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json(diagnostics, { 
+    return Response.json(diagnostics, { 
       status: 200,
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate'
@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error: any) {
-    return NextResponse.json({
+    return Response.json({
       error: true,
       message: error.message,
       stack: error.stack,

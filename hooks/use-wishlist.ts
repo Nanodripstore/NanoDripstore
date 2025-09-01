@@ -18,9 +18,12 @@ export interface WishlistItem {
   id: string
   productId: number
   userId: string
-  products: Product
+  name: string
+  price: number
+  image: string
+  type: string
+  category?: string
   createdAt: string
-  updatedAt: string
 }
 
 export function useWishlist() {
@@ -34,7 +37,12 @@ export function useWishlist() {
     
     try {
       setLoading(true)
-      const response = await fetch('/api/user/wishlist')
+      const response = await fetch('/api/user/wishlist', {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        }
+      })
       
       if (response.status === 401) {
         // User is not authenticated, return empty array silently
@@ -66,11 +74,28 @@ export function useWishlist() {
     }
   }, [session])
 
-  const addToWishlist = useCallback(async (productId: string) => {
+  const addToWishlist = useCallback(async (productId: string, productData?: {
+    name: string;
+    price: number;
+    image: string;
+    type?: string;
+    category?: string;
+  }) => {
     if (!session) {
       toast({
         title: "Not signed in",
         description: "Please sign in to add items to your wishlist",
+        variant: "destructive"
+      })
+      return null
+    }
+
+    // Validate productData
+    if (!productData) {
+      console.error('addToWishlist called without productData:', { productId, productData })
+      toast({
+        title: "Error",
+        description: "Product data is missing",
         variant: "destructive"
       })
       return null
@@ -81,15 +106,12 @@ export function useWishlist() {
       id: `temp-${Date.now()}`,
       productId: parseInt(productId),
       userId: session.user?.id || '',
-      products: {
-        id: productId,
-        name: 'Loading...',
-        description: '',
-        price: 0,
-        imageUrl: ''
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      name: productData.name || 'Loading...',
+      price: productData.price || 0,
+      image: productData.image || '/placeholder.png',
+      type: productData.type || 'tshirt',
+      category: productData.category || null,
+      createdAt: new Date().toISOString()
     }
 
     // Optimistically add to wishlist for immediate UI feedback
@@ -101,7 +123,14 @@ export function useWishlist() {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ productId })
+        body: JSON.stringify({ 
+          productId,
+          name: productData.name || 'Unknown Product',
+          price: productData.price || 0,
+          image: productData.image || '/placeholder.png',
+          type: productData.type || 'tshirt',
+          category: productData.category || null
+        })
       })
       
       if (!response.ok) {
@@ -152,7 +181,7 @@ export function useWishlist() {
       
       toast({
         title: "Added to wishlist",
-        description: `${addedItem.products.name} added to your wishlist`
+        description: `${addedItem.name || 'Product'} added to your wishlist`
       })
       
       return addedItem

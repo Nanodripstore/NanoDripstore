@@ -25,17 +25,7 @@ export async function GET(req: Request) {
 
     const wishlist = await db.wishlist_items.findMany({
       where: { userId: user.id },
-      include: {
-        products: {
-          select: {
-            id: true,
-            name: true,
-            description: true,
-            price: true,
-            images: true
-          }
-        }
-      }
+      orderBy: { createdAt: 'desc' }
     })
 
     return Response.json(wishlist)
@@ -53,10 +43,10 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Unauthorized' }, { status: StatusCodes.UNAUTHORIZED })
     }
 
-    const { productId } = await req.json()
+    const { productId, name, price, image, type, category } = await req.json()
     
-    if (!productId) {
-      return Response.json({ error: 'Product ID is required' }, { status: StatusCodes.BAD_REQUEST })
+    if (!productId || !name || price === undefined || price === null || !image) {
+      return Response.json({ error: 'Product data is required (productId, name, price, image)' }, { status: StatusCodes.BAD_REQUEST })
     }
 
     // Convert productId to number since the database expects an integer
@@ -77,15 +67,6 @@ export async function POST(req: Request) {
       return Response.json({ error: 'User not found' }, { status: StatusCodes.NOT_FOUND })
     }
 
-    // Check if product exists
-    const product = await db.products.findUnique({
-      where: { id: productIdInt }
-    })
-
-    if (!product) {
-      return Response.json({ error: 'Product not found' }, { status: StatusCodes.NOT_FOUND })
-    }
-
     // Check if item is already in the wishlist
     const existingItem = await db.wishlist_items.findFirst({
       where: {
@@ -98,27 +79,17 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Product already in wishlist' }, { status: StatusCodes.CONFLICT })
     }
 
-    // Add item to wishlist
+    // Add item to wishlist with product data stored directly
     const wishlistItem = await db.wishlist_items.create({
       data: {
         id: randomUUID(),
-        users: {
-          connect: { id: user.id }
-        },
-        products: {
-          connect: { id: productIdInt }
-        }
-      },
-      include: {
-        products: {
-          select: {
-            id: true,
-            name: true,
-            description: true,
-            price: true,
-            images: true
-          }
-        }
+        userId: user.id,
+        productId: productIdInt,
+        name: name,
+        price: parseFloat(price),
+        image: image,
+        type: type || 'tshirt',
+        category: category || null
       }
     })
 

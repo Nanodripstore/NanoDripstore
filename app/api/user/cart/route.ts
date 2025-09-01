@@ -34,13 +34,11 @@ export async function GET(req: Request) {
       return Response.json({ error: 'User not found' }, { status: StatusCodes.NOT_FOUND })
     }
 
-    // Get cart items without database product join
+    // Get cart items without database product join, ordered by newest first
     const cartItems = await db.cart_items.findMany({
-      where: { userId: user.id }
+      where: { userId: user.id },
+      orderBy: { updatedAt: 'desc' }
     })
-
-    console.log('=== CART GET DEBUG ===');
-    console.log('Raw cart items from DB:', cartItems.length);
 
     // Fetch all products from Google Sheets to enrich cart items
     let sheetProducts = [];
@@ -48,7 +46,6 @@ export async function GET(req: Request) {
       const syncService = new LiveSheetSyncService()
       const sheetResult = await syncService.getProductsFromSheet({ limit: 1000 })
       sheetProducts = sheetResult.products || []
-      console.log('Sheet products loaded for cart enrichment:', sheetProducts.length);
     } catch (error) {
       console.error('Error fetching sheet products for cart:', error);
     }
@@ -143,21 +140,6 @@ export async function GET(req: Request) {
         }
       }
 
-      // Debug product data structure
-      if (productData) {
-        console.log('Sheet product data keys:', Object.keys(productData));
-        console.log('Image data check:', {
-          hasImages: !!productData.images,
-          imagesLength: productData.images?.length || 0,
-          firstImage: productData.images?.[0] || 'NO FIRST IMAGE',
-          image_url_1: productData.image_url_1 || 'NO URL1',
-          image_url_2: productData.image_url_2 || 'NO URL2'
-        });
-      }
-
-      console.log(`Cart item ${cartItem.productId}: Using ${productData ? 'sheet' : 'cart'} data - ${finalProductData.name}`);
-      console.log(`Cart item color-specific image: ${selectedImage || 'NO IMAGE'} for color: ${cartItem.color || 'NO COLOR'}`);
-
       return {
         ...cartItem,
         // Flatten the product data into the cart item for easy access
@@ -196,10 +178,6 @@ export async function POST(req: Request) {
 
     const { productId, quantity, size, color, variantId, sku } = await req.json()
     
-    console.log('=== CART API POST DEBUG ===');
-    console.log('Request data:', { productId, quantity, size, color, variantId, sku });
-    console.log('Product ID type:', typeof productId);
-    
     if (!productId || quantity === undefined) {
       return Response.json({ error: 'Product ID and quantity are required' }, { status: StatusCodes.BAD_REQUEST })
     }
@@ -221,7 +199,6 @@ export async function POST(req: Request) {
 
     // Fetch product from Google Sheets directly (primary source of truth)
     let productFromSheet = null
-    console.log(`Fetching product ${productId} from Google Sheets...`)
     try {
       const syncService = new LiveSheetSyncService()
       const sheetResult = await syncService.getProductsFromSheet({ limit: 1000 })
@@ -256,16 +233,9 @@ export async function POST(req: Request) {
         });
       }
       
-      console.log('Sheet products found:', sheetProducts.length);
-      console.log('Looking for product ID:', productId);
-      console.log('Found sheet products (first 5):', sheetProducts.slice(0, 5).map((p: any) => ({ id: p.id, name: p.name })));
-      
       if (!productFromSheet) {
-        console.log(`Product ${productId} not found in Google Sheets`)
         return Response.json({ error: 'Product not found' }, { status: StatusCodes.NOT_FOUND })
       }
-      
-      console.log(`Found product ${productId} in Google Sheets:`, productFromSheet.name)
     } catch (error) {
       console.error('Error fetching from Google Sheets:', error)
       return Response.json({ error: 'Failed to fetch product data' }, { status: StatusCodes.INTERNAL_SERVER_ERROR })
@@ -275,7 +245,6 @@ export async function POST(req: Request) {
     const product = await db.products.findUnique({
       where: { id: productId }
     })
-    console.log('Database lookup result:', product ? `Found product: ${product.name}` : 'Product not found in DB');
 
     // Check if item is already in the cart
     const existingCartItem = await db.cart_items.findFirst({
@@ -296,17 +265,6 @@ export async function POST(req: Request) {
         where: { id: existingCartItem.id },
         data: {
           quantity: existingCartItem.quantity + quantity
-        },
-        include: {
-          products: {
-            select: {
-              id: true,
-              name: true,
-              description: true,
-              price: true,
-              images: true
-            }
-          }
         }
       })
     } else {
@@ -329,7 +287,6 @@ export async function POST(req: Request) {
           price: productFromSheet.base_price || productFromSheet.price || 0,
           images: images
         }
-        console.log('Using sheet data for cart:', productDetails);
       } else if (product) {
         // Fallback to database data if sheet data not available
         productDetails = await db.products.findUnique({
@@ -340,11 +297,9 @@ export async function POST(req: Request) {
             images: true
           }
         })
-        console.log('Using database data for cart:', productDetails);
       }
       
       if (!productDetails) {
-        console.log('No product details available');
         return Response.json({ error: 'Product details not found' }, { status: StatusCodes.NOT_FOUND })
       }
       
@@ -364,17 +319,6 @@ export async function POST(req: Request) {
           variantId: variantId ? parseInt(variantId.toString()) : null,
           sku: sku || null,
           updatedAt: new Date()
-        },
-        include: {
-          products: {
-            select: {
-              id: true,
-              name: true,
-              description: true,
-              price: true,
-              images: true
-            }
-          }
         }
       })
     }
@@ -397,10 +341,6 @@ export async function PUT(req: Request) {
     }
 
     const { productId, quantity, size, color, variantId, sku } = await req.json()
-    
-    console.log('=== CART API PUT DEBUG ===');
-    console.log('Request data:', { productId, quantity, size, color, variantId, sku });
-    console.log('Product ID type:', typeof productId);
     
     if (!productId || quantity === undefined) {
       return Response.json({ error: 'Product ID and quantity are required' }, { status: StatusCodes.BAD_REQUEST })
@@ -483,32 +423,38 @@ export async function PUT(req: Request) {
         where: { id: existingCartItem.id },
         data: {
           quantity // Set exact quantity, not adding
-        },
-        include: {
-          products: {
-            select: {
-              id: true,
-              name: true,
-              description: true,
-              price: true,
-              images: true
-            }
-          }
         }
       })
     } else {
       // Generate unique ID for new cart item
       const uniqueId = `cart_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
       
-      // Get detailed product info
-      const productDetails = await db.products.findUnique({
-        where: { id: productId },
-        select: {
-          name: true,
-          price: true,
-          images: true
+      // Use Google Sheets data for product details
+      let productDetails;
+      if (productFromSheet) {
+        const images = processImageUrls([
+          productFromSheet.image_url_1,
+          productFromSheet.image_url_2,
+          productFromSheet.image_url_3,
+          productFromSheet.image_url_4
+        ])
+        
+        productDetails = {
+          name: productFromSheet.name,
+          price: productFromSheet.base_price || productFromSheet.price || 0,
+          images: images
         }
-      })
+      } else {
+        // Fallback to database data if sheet data not available
+        productDetails = await db.products.findUnique({
+          where: { id: productId },
+          select: {
+            name: true,
+            price: true,
+            images: true
+          }
+        })
+      }
       
       if (!productDetails) {
         return Response.json({ error: 'Product details not found' }, { status: StatusCodes.NOT_FOUND })
@@ -530,17 +476,6 @@ export async function PUT(req: Request) {
           variantId: null, // Set to null for sheet-based products to avoid foreign key constraint
           sku: sku || null,
           updatedAt: new Date()
-        },
-        include: {
-          products: {
-            select: {
-              id: true,
-              name: true,
-              description: true,
-              price: true,
-              images: true
-            }
-          }
         }
       })
     }

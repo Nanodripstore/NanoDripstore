@@ -15,17 +15,11 @@ export async function GET() {
       include: {
         addresses: true,
         cart_items: {
-          include: {
-            products: true
-          },
           orderBy: {
             createdAt: 'desc'
           }
         },
         wishlist_items: {
-          include: {
-            products: true
-          },
           orderBy: {
             createdAt: 'desc'
           }
@@ -66,11 +60,9 @@ export async function GET() {
       cartCount: user.cart_items.length,
       wishlist: user.wishlist_items.map(item => ({
         id: item.id,
-        name: item.products?.name || 'Unknown Product',
-        price: item.products?.price || 0,
-        image: (item.products?.images && Array.isArray(item.products.images) && item.products.images.length > 0) 
-          ? item.products.images[0] 
-          : '/placeholder.png'
+        name: item.name,
+        price: item.price,
+        image: item.image
       })),
       wishlistCount: user.wishlist_items.length,
       orders: user.orders.map(order => ({

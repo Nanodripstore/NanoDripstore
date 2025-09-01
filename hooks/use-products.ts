@@ -74,17 +74,23 @@ export function useProducts({
       searchParams.append('sortBy', sortBy);
       searchParams.append('sortOrder', sortOrder);
 
-      const response = await fetch(`/api/products/search?${searchParams.toString()}`);
+      const response = await fetch(`/api/products/search?${searchParams.toString()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        }
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch products');
       }
 
       return response.json();
     },
-    staleTime: 10 * 60 * 1000, // 10 minutes (increased from 5)
-    gcTime: 30 * 60 * 1000, // 30 minutes (increased from 10)
-    refetchOnWindowFocus: false,
-    retry: 1 // Reduced retry attempts for faster failure
+    staleTime: 0, // Always refetch
+    gcTime: 0, // Don't cache
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true
   });
 }
 
@@ -94,7 +100,12 @@ export function useProduct(slug: string | null) {
     queryFn: async () => {
       if (!slug) return null;
 
-      const response = await fetch(`/api/products/${slug}`);
+      const response = await fetch(`/api/products/${slug}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        }
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch product');
       }
@@ -102,6 +113,11 @@ export function useProduct(slug: string | null) {
       return response.json();
     },
     enabled: !!slug, // Only run the query if slug is provided
+    staleTime: 0, // Always refetch
+    gcTime: 0, // Don't cache
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true
   });
 }
 
@@ -140,18 +156,23 @@ export function useProductsFromSheet({
       //   searchParams.append('t', Date.now().toString());
       // }
 
-      const response = await fetch(`/api/products/live?${searchParams.toString()}`);
+      const response = await fetch(`/api/products/live?${searchParams.toString()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        }
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch products from sheet');
       }
 
       return response.json();
     },
-    staleTime: process.env.NODE_ENV === 'production' ? 0 : 30 * 1000, // No cache in production, 30 seconds in dev
-    gcTime: process.env.NODE_ENV === 'production' ? 0 : 1 * 60 * 1000, // No cache in production, 1 minute in dev
-    refetchOnWindowFocus: true, // Enable refetch on focus
-    refetchInterval: process.env.NODE_ENV === 'production' ? 30 * 1000 : (refresh ? false : 1 * 60 * 1000), // 30s in production, 1 minute in dev
-    retry: 1
+    staleTime: 0, // Always refetch
+    gcTime: 0, // Don't cache
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true
   });
 }
 
@@ -167,7 +188,12 @@ export function useProductFromSheet(slug: string | null, refresh: boolean = fals
       // Add timestamp to force fresh data on page reload
       searchParams.append('t', Date.now().toString());
 
-      const response = await fetch(`/api/products/live/${slug}?${searchParams.toString()}`);
+      const response = await fetch(`/api/products/live/${slug}?${searchParams.toString()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        }
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch product from sheet');
       }
@@ -175,10 +201,10 @@ export function useProductFromSheet(slug: string | null, refresh: boolean = fals
       return response.json();
     },
     enabled: !!slug, // Only run the query if slug is provided
-    staleTime: process.env.NODE_ENV === 'production' ? 0 : 30 * 1000, // No cache in production, 30 seconds in dev
-    gcTime: process.env.NODE_ENV === 'production' ? 0 : 1 * 60 * 1000, // No cache in production, 1 minute in dev
-    refetchOnWindowFocus: true, // Enable refetch on focus
-    refetchInterval: process.env.NODE_ENV === 'production' ? 30 * 1000 : (refresh ? false : 1 * 60 * 1000), // 30s in production, 1 minute in dev
-    retry: 1
+    staleTime: 0, // Always refetch
+    gcTime: 0, // Don't cache
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true
   });
 }

@@ -1,8 +1,16 @@
 import { db } from '@/lib/db';
 import bcrypt from 'bcryptjs';
+import { authRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
+import { NextRequest } from 'next/server';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    // Apply rate limiting for password reset
+    const rateLimitResult = await authRateLimit(request);
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult);
+    }
+
     const { token, password } = await request.json();
 
     if (!token || !password) {

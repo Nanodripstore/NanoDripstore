@@ -4,6 +4,8 @@ import * as z from "zod";
 import { sendVerificationEmail } from "@/lib/email";
 import { randomUUID } from "crypto";
 import { normalizeEmail } from "@/lib/utils";
+import { authRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
+import { NextRequest } from 'next/server';
 
 //Define a schema for input validation
 const userSchema = z
@@ -16,8 +18,14 @@ const userSchema = z
       .min(8, 'Password must have than 8 characters')
   })
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    // Apply rate limiting for user registration
+    const rateLimitResult = await authRateLimit(req);
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult);
+    }
+
     console.log('📝 Starting user registration process...');
     const body = await req.json();
     console.log('📨 Received body:', { email: body.email, username: body.username });

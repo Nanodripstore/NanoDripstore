@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, CreditCard, MapPin, User, Lock } from 'lucide-react';
+import { ArrowLeft, CreditCard, MapPin, User, Lock, Banknote } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useCartStore } from '@/lib/cart-store';
@@ -14,8 +14,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
 import { SimpleProxiedImage } from '@/components/simple-proxied-image';
+import { useRazorpay } from '@/hooks/use-razorpay';
 
 export default function Checkout() {
   const { data: session } = useSession();
@@ -26,6 +28,7 @@ export default function Checkout() {
   const [directOrderProduct, setDirectOrderProduct] = useState<any>(null);
   const urlParamsProcessed = useRef(false);
   const [cartLoaded, setCartLoaded] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'razorpay'>('cod');
 
   const [formData, setFormData] = useState({
     email: session?.user?.email || '',
@@ -39,6 +42,25 @@ export default function Checkout() {
     expiryDate: '',
     cvv: '',
     nameOnCard: ''
+  });
+
+  // Razorpay hook
+  const { initiatePayment, loading: razorpayLoading, error: razorpayError } = useRazorpay({
+    onSuccess: async (response) => {
+      console.log('Razorpay payment successful:', response);
+      toast.success('Payment successful! Your order has been placed.');
+      
+      // Don't clear cart - keep items in cart as requested
+      setOrderCompleted(true);
+      router.push('/orders?payment=success');
+    },
+    onFailure: (error) => {
+      console.error('Razorpay payment failed:', error);
+      toast.error('Payment failed. Please try again.');
+    },
+    onDismiss: () => {
+      toast.info('Payment cancelled');
+    }
   });
 
   useEffect(() => {
@@ -103,6 +125,38 @@ export default function Checkout() {
     setIsLoading(true);
 
     try {
+      // Handle Razorpay payment
+      if (paymentMethod === 'razorpay') {
+        const totalAmount = directOrderProduct ? directOrderProduct.price : getTotalPrice();
+        const orderItems = directOrderProduct ? [directOrderProduct] : items;
+        
+        await initiatePayment({
+          amount: totalAmount,
+          currency: 'INR',
+          description: `Payment for ${orderItems.length} item(s)`,
+          customerData: {
+            name: `${formData.firstName} ${formData.lastName}`,
+            email: formData.email,
+            phone: formData.phone ? `+91${formData.phone.replace(/^\+91/, '').replace(/\D/g, '')}` : '+919999999999', // Ensure +91 format
+          },
+          metadata: {
+            orderItems,
+            shippingAddress: {
+              firstName: formData.firstName,
+              lastName: formData.lastName,
+              address: formData.address,
+              phone: formData.phone,
+              email: formData.email,
+              city: formData.city,
+              zipCode: formData.zipCode,
+            },
+            directOrderProduct
+          }
+        });
+        return; // Razorpay will handle the rest
+      }
+
+      // Handle COD payment (existing logic)
       if (directOrderProduct) {
         // Direct order format for single product
         const orderPayload = {
@@ -514,78 +568,106 @@ export default function Checkout() {
                   </CardContent>
                 </Card>
 
-                {/* Payment Information */}
-                {/* <Card>
+                {/* Payment Method Selection */}
+                <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <CreditCard className="h-5 w-5" />
-                      Payment Information
+                      Payment Method
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div>
-                      <Label htmlFor="nameOnCard">Name on Card</Label>
-                      <Input
-                        id="nameOnCard"
-                        name="nameOnCard"
-                        value={formData.nameOnCard}
-                        onChange={handleInputChange}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="cardNumber">Card Number</Label>
-                      <Input
-                        id="cardNumber"
-                        name="cardNumber"
-                        placeholder="1234 5678 9012 3456"
-                        value={formData.cardNumber}
-                        onChange={handleInputChange}
-                        required
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="expiryDate">Expiry Date</Label>
-                        <Input
-                          id="expiryDate"
-                          name="expiryDate"
-                          placeholder="MM/YY"
-                          value={formData.expiryDate}
-                          onChange={handleInputChange}
-                          required
-                        />
+                    <RadioGroup
+                      value={paymentMethod}
+                      onValueChange={(value: 'cod' | 'razorpay') => setPaymentMethod(value)}
+                      className="space-y-4"
+                    >
+                      {/* Cash on Delivery */}
+                      <div className="flex items-center space-x-3 p-4 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                        <RadioGroupItem value="cod" id="cod" />
+                        <Label htmlFor="cod" className="flex-1 cursor-pointer">
+                          <div className="flex items-center gap-3">
+                            <Banknote className="h-5 w-5 text-green-600" />
+                            <div>
+                              <p className="font-medium">Cash on Delivery (COD)</p>
+                              <p className="text-sm text-muted-foreground">Pay when you receive your order</p>
+                            </div>
+                          </div>
+                        </Label>
                       </div>
-                      <div>
-                        <Label htmlFor="cvv">CVV</Label>
-                        <Input
-                          id="cvv"
-                          name="cvv"
-                          placeholder="123"
-                          value={formData.cvv}
-                          onChange={handleInputChange}
-                          required
-                        />
+
+                      {/* Razorpay Online Payment */}
+                      <div className="flex items-center space-x-3 p-4 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                        <RadioGroupItem value="razorpay" id="razorpay" />
+                        <Label htmlFor="razorpay" className="flex-1 cursor-pointer">
+                          <div className="flex items-center gap-3">
+                            <CreditCard className="h-5 w-5 text-blue-600" />
+                            <div>
+                              <p className="font-medium">Online Payment</p>
+                              <p className="text-sm text-muted-foreground">
+                                Pay securely with UPI, Cards, Net Banking & Wallets
+                              </p>
+                            </div>
+                          </div>
+                        </Label>
                       </div>
-                    </div>
+                    </RadioGroup>
+
+                    {/* Payment method specific information */}
+                    {paymentMethod === 'cod' && (
+                      <div className="mt-4 p-3 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+                        <p className="text-sm text-orange-800 dark:text-orange-200">
+                          <strong>Note:</strong> You can pay in cash when your order is delivered to your doorstep.
+                        </p>
+                      </div>
+                    )}
+
+                    {paymentMethod === 'razorpay' && (
+                      <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                        <p className="text-sm text-blue-800 dark:text-blue-200">
+                          <strong>Secure Payment:</strong> Your payment information is encrypted and secure. 
+                          Powered by Razorpay.
+                        </p>
+                      </div>
+                    )}
+
+                    {razorpayError && (
+                      <div className="mt-4 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg">
+                        <p className="text-sm text-red-800 dark:text-red-200">
+                          <strong>Payment Error:</strong> {razorpayError}
+                        </p>
+                      </div>
+                    )}
                   </CardContent>
-                </Card> */}
+                </Card>
 
                 <Button 
                   type="submit" 
                   className="w-full" 
                   size="lg"
-                  disabled={isLoading}
+                  disabled={isLoading || razorpayLoading}
                 >
-                  {isLoading ? (
+                  {(isLoading || razorpayLoading) ? (
                     <div className="flex items-center gap-2">
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      {directOrderProduct ? 'Processing Order...' : `Processing ${items.length} Order${items.length > 1 ? 's' : ''}...`}
+                      {paymentMethod === 'razorpay' 
+                        ? 'Opening Payment Gateway...' 
+                        : (directOrderProduct ? 'Processing Order...' : `Processing ${items.length} Order${items.length > 1 ? 's' : ''}...`)
+                      }
                     </div>
                   ) : (
                     <>
-                      <Lock className="h-4 w-4 mr-2" />
-                      {directOrderProduct ? 'Place Order' : `Place ${items.length} Order${items.length > 1 ? 's' : ''}`}
+                      {paymentMethod === 'razorpay' ? (
+                        <>
+                          <CreditCard className="h-4 w-4 mr-2" />
+                          Pay ₹{directOrderProduct ? directOrderProduct.price.toFixed(2) : getTotalPrice().toFixed(2)}
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="h-4 w-4 mr-2" />
+                          {directOrderProduct ? 'Place Order (COD)' : `Place ${items.length} Order${items.length > 1 ? 's' : ''} (COD)`}
+                        </>
+                      )}
                     </>
                   )}
                 </Button>

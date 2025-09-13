@@ -37,12 +37,18 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Order payload is missing.' }, { status: 400 });
     }
 
+    console.log('🔧 Qikink Order Creation Started');
+    console.log('📋 Order Payload:', JSON.stringify(orderPayload, null, 2));
+
     const CREATE_ORDER_URL = `${process.env.QIKINK_API_URL}/api/order/create`;
 
     // Step 1: Get the full authentication object
+    console.log('🔐 Getting Qikink authentication...');
     const authData = await getAuthData();
+    console.log('✅ Authentication successful, ClientId:', authData.ClientId);
 
     // Step 2: Create the order using custom headers
+    console.log('🚀 Sending order to Qikink API:', CREATE_ORDER_URL);
     const orderResponse = await fetch(CREATE_ORDER_URL, {
       method: 'POST',
       headers: {
@@ -54,16 +60,19 @@ export async function POST(req: Request) {
       body: JSON.stringify(orderPayload),
     });
 
+    console.log('📡 Qikink Response Status:', orderResponse.status);
     const orderData = await orderResponse.json();
+    console.log('📄 Qikink Response Data:', JSON.stringify(orderData, null, 2));
 
     if (!orderResponse.ok) {
-      console.error("Qikink API Error:", orderData);
+      console.error("❌ Qikink API Error:", orderData);
       return Response.json({ error: orderData.error || 'Failed to create order.' }, { status: orderResponse.status });
     }
     
+    console.log('✅ Qikink order created successfully');
     return Response.json(orderData);
   } catch (error: any) {
-    console.error('Internal Server Error:', error);
+    console.error('❌ Internal Server Error:', error);
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

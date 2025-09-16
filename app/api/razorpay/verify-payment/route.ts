@@ -78,6 +78,46 @@ export async function POST(req: Request) {
       // Generate a simple numeric order number like COD orders
       const simpleOrderNumber = `${Date.now()}`;
       
+      // Process each item to get correct size-specific SKU (same logic as COD orders)
+      const processedLineItems = [];
+      
+      for (let i = 0; i < orderItems.length; i++) {
+        const item = orderItems[i];
+        let productSku = item.sku; // Start with existing SKU if available
+        
+        console.log(`🔍 Razorpay order: Processing item ${i + 1}/${orderItems.length}: ${item.name}`);
+        
+        // Get the correct SKU from our sheet-based lookup (same as COD logic)
+        try {
+          console.log(`🔍 Razorpay order: Fetching exact SKU from sheet for Product ${item.id}, Color: ${item.color}, Size: ${item.size}`);
+          
+          const skuResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/products/variant-sku?productId=${item.id}&color=${encodeURIComponent(item.color)}&size=${encodeURIComponent(item.size)}`);
+          
+          if (skuResponse.ok) {
+            const skuData = await skuResponse.json();
+            productSku = skuData.sku;
+            console.log(`✅ Razorpay order: Got exact SKU from sheet: ${productSku}`);
+          } else {
+            console.warn(`Razorpay order: Sheet SKU lookup failed for ${item.name}, using fallback SKU`);
+          }
+        } catch (error) {
+          console.warn(`Razorpay order: SKU lookup error for ${item.name}:`, error);
+        }
+        
+        // If still no SKU, create a fallback
+        if (!productSku) {
+          productSku = `FALLBACK-${item.id}-${item.color?.substring(0, 3).toUpperCase() || 'DEF'}-${item.size?.toUpperCase() || 'SIZE'}`;
+          console.warn(`No SKU found for ${item.name} (${item.color}, ${item.size}), using fallback: ${productSku}`);
+        }
+        
+        processedLineItems.push({
+          search_from_my_products: 1,
+          quantity: (item.quantity || 1).toString(),
+          price: item.price.toString(),
+          sku: productSku
+        });
+      }
+      
       // Create order record
       const order = await db.orders.create({
         data: {
@@ -94,12 +134,7 @@ export async function POST(req: Request) {
             razorpay_signature,
             orderItems,
             shippingAddress,
-            line_items: orderItems.map((item: any) => ({
-              search_from_my_products: 1,
-              quantity: (item.quantity || 1).toString(),
-              price: item.price.toString(),
-              sku: item.sku || `SKU-${item.id}-${item.color?.substring(0,3).toUpperCase() || 'DEF'}`
-            })),
+            line_items: processedLineItems,
             shipping_address: {
               first_name: shippingAddress.firstName || 'Customer',
               last_name: shippingAddress.lastName || '',

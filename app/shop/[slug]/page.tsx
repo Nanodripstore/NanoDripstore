@@ -115,7 +115,7 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
     }
   }, [session, fetchWishlist]);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!session?.user) {
       toast.error("Please sign in to add items to cart", {
         description: "You need to be logged in to use the shopping cart",
@@ -127,6 +127,17 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
       return;
     }
 
+    console.log('🛒 handleAddToCart called with:', {
+      selectedVariant: selectedVariant ? {
+        id: selectedVariant.id,
+        colorName: selectedVariant.colorName,
+        size: selectedVariant.size,
+        sku: selectedVariant.sku
+      } : null,
+      selectedSize,
+      productSizes: product?.sizes
+    });
+
     if (!selectedVariant || !selectedSize) {
       toast.error("Please select options", {
         description: "You need to select both color and size before adding to cart",
@@ -135,11 +146,52 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
     }
 
     if (product) {
-      // Use variant price if available, otherwise use product price
-      const itemPrice = selectedVariant.price || product.price;
-      const variantSku = selectedVariant.sku || product.sku;
+      // First try to get the exact SKU from Google Sheets
+      let finalSku = product.sku; // Default fallback
+      let itemPrice = selectedVariant.price || product.price;
       
-      console.log('Adding to cart with quantity:', quantity);
+      try {
+        console.log(`🔍 Fetching exact SKU from sheet for Product ${product.id}, Color: ${selectedVariant.colorName}, Size: ${selectedSize}`);
+        
+        const skuResponse = await fetch(`/api/products/variant-sku?productId=${product.id}&color=${encodeURIComponent(selectedVariant.colorName)}&size=${encodeURIComponent(selectedSize)}`);
+        
+        if (skuResponse.ok) {
+          const skuData = await skuResponse.json();
+          finalSku = skuData.sku;
+          console.log(`✅ Got exact SKU from sheet: ${finalSku}`);
+        } else {
+          console.warn('Sheet SKU lookup failed, using variant matching');
+          
+          // Find the exact variant that matches both selected color and size
+          const exactVariant = product.variants?.find((variant: any) => 
+            variant.colorName === selectedVariant.colorName && 
+            variant.size === selectedSize
+          );
+          
+          // Use exact variant if found, otherwise fall back to selected variant
+          const finalVariant = exactVariant || selectedVariant;
+          finalSku = finalVariant.sku || product.sku;
+          itemPrice = finalVariant.price || product.price;
+          
+          console.log('Using variant-based SKU:', {
+            color: selectedVariant.colorName,
+            size: selectedSize,
+            exactVariantFound: !!exactVariant,
+            sku: finalSku
+          });
+        }
+      } catch (error) {
+        console.warn('Error fetching SKU from sheet:', error);
+        
+        // Fallback to variant matching
+        const exactVariant = product.variants?.find((variant: any) => 
+          variant.colorName === selectedVariant.colorName && 
+          variant.size === selectedSize
+        );
+        const finalVariant = exactVariant || selectedVariant;
+        finalSku = finalVariant.sku || product.sku;
+        itemPrice = finalVariant.price || product.price;
+      }
       
       addItem({
         id: product.id,
@@ -149,12 +201,12 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
         size: selectedSize,
         image: currentImages.length > 0 ? currentImages[0] : "/placeholder.jpg",
         type: product.type === "tshirt" || product.type === "hoodie" ? product.type : "tshirt",
-        sku: variantSku
+        sku: finalSku
         // Removed variantId since we're setting it to null for sheet-based products
       }, quantity);
 
       toast.success(`Added ${quantity} × ${product.name} to cart!`, {
-        description: `Color: ${selectedVariant.colorName || selectedVariant.name} • Size: ${selectedSize} • Price: ₹${itemPrice.toFixed(2)}`,
+        description: `Color: ${selectedVariant.colorName || selectedVariant.name} • Size: ${selectedSize} • Price: ₹${itemPrice.toFixed(2)} • SKU: ${finalSku}`,
       });
     }
   };
@@ -502,7 +554,10 @@ export default function ProductDetail({ params }: { params: { slug: string } | P
                 <h3 className="font-medium mb-2">Size: {selectedSize}</h3>
                 <RadioGroup 
                   value={selectedSize} 
-                  onValueChange={setSelectedSize}
+                  onValueChange={(newSize) => {
+                    console.log('📏 Size selection changed:', { from: selectedSize, to: newSize });
+                    setSelectedSize(newSize);
+                  }}
                   className="flex flex-wrap gap-2"
                 >
                   {product.sizes.map((size: string) => (

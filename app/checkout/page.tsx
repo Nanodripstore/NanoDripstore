@@ -158,6 +158,25 @@ export default function Checkout() {
 
       // Handle COD payment (existing logic)
       if (directOrderProduct) {
+        // Get the correct SKU from our sheet-based lookup
+        let finalSku = directOrderProduct.sku; // Fallback to URL parameter SKU
+        
+        try {
+          console.log(`🔍 Direct order: Fetching exact SKU from sheet for Product ${directOrderProduct.id}, Color: ${directOrderProduct.color}, Size: ${directOrderProduct.size}`);
+          
+          const skuResponse = await fetch(`/api/products/variant-sku?productId=${directOrderProduct.id}&color=${encodeURIComponent(directOrderProduct.color)}&size=${encodeURIComponent(directOrderProduct.size)}`);
+          
+          if (skuResponse.ok) {
+            const skuData = await skuResponse.json();
+            finalSku = skuData.sku;
+            console.log(`✅ Direct order: Got exact SKU from sheet: ${finalSku}`);
+          } else {
+            console.warn(`Direct order: Sheet SKU lookup failed, using URL parameter SKU: ${finalSku}`);
+          }
+        } catch (error) {
+          console.warn(`Direct order: SKU lookup error, using URL parameter SKU:`, error);
+        }
+        
         // Direct order format for single product
         const orderPayload = {
           "order_number": `${Date.now()}`,
@@ -168,7 +187,7 @@ export default function Checkout() {
             "search_from_my_products": 1,
             "quantity": "1",
             "price": directOrderProduct.price.toString(),
-            "sku": directOrderProduct.sku
+            "sku": finalSku
           }],
           "shipping_address": {
             "first_name": formData.firstName,
@@ -245,34 +264,57 @@ export default function Checkout() {
             // Priority 1: Use SKU from cart item if available (from variant)
             if (item.sku) {
               productSku = item.sku;
-              console.log(`Using cart item SKU for ${item.name}: ${productSku}`);
+              console.log(`Using cart item SKU for ${item.name} (${item.color} ${item.size}): ${productSku}`);
             } else {
-              // Priority 2: Fetch product with variants and find matching color
+              // Priority 2: Fetch exact SKU from Google Sheets using our new API
               try {
-                const productResponse = await fetch(`/api/products/${item.id}`);
-                if (productResponse.ok) {
-                  const productData = await productResponse.json();
-                  
-                  // Look for variant with matching color
-                  const matchingVariant = productData.variants?.find(
-                    (variant: any) => variant.colorName.toLowerCase() === item.color.toLowerCase()
-                  );
-                  
-                  if (matchingVariant) {
-                    productSku = matchingVariant.sku;
-                    console.log(`Using variant SKU for ${item.name} (${item.color}): ${productSku}`);
-                  } else if (productData.sku) {
-                    productSku = productData.sku;
-                    console.log(`Using base product SKU for ${item.name}: ${productSku}`);
-                  }
+                console.log(`🔍 Fetching exact SKU from sheet for Product ${item.id}, Color: ${item.color}, Size: ${item.size}`);
+                
+                const skuResponse = await fetch(`/api/products/variant-sku?productId=${item.id}&color=${encodeURIComponent(item.color)}&size=${encodeURIComponent(item.size)}`);
+                
+                if (skuResponse.ok) {
+                  const skuData = await skuResponse.json();
+                  productSku = skuData.sku;
+                  console.log(`✅ Got exact SKU from sheet for ${item.name} (${item.color} ${item.size}): ${productSku}`);
                 } else {
-                  console.warn(`API fetch failed for product ${item.id}, status: ${productResponse.status}`);
+                  console.warn(`Sheet SKU lookup failed for product ${item.id} (${item.color} ${item.size}), trying fallback methods`);
+                  
+                  // Priority 3: Fallback to product API with variants
+                  const productResponse = await fetch(`/api/products/${item.id}`);
+                  if (productResponse.ok) {
+                    const productData = await productResponse.json();
+                    
+                    // Look for variant with matching color AND size (most specific)
+                    const exactMatchingVariant = productData.variants?.find(
+                      (variant: any) => 
+                        variant.colorName.toLowerCase() === item.color.toLowerCase() &&
+                        variant.size === item.size
+                    );
+                    
+                    if (exactMatchingVariant) {
+                      productSku = exactMatchingVariant.sku;
+                      console.log(`Using exact variant SKU for ${item.name} (${item.color} ${item.size}): ${productSku}`);
+                    } else {
+                      // Fallback: Look for variant with matching color only
+                      const colorMatchingVariant = productData.variants?.find(
+                        (variant: any) => variant.colorName.toLowerCase() === item.color.toLowerCase()
+                      );
+                      
+                      if (colorMatchingVariant) {
+                        productSku = colorMatchingVariant.sku;
+                        console.log(`Using color variant SKU for ${item.name} (${item.color}): ${productSku}`);
+                      } else if (productData.sku) {
+                        productSku = productData.sku;
+                        console.log(`Using base product SKU for ${item.name}: ${productSku}`);
+                      }
+                    }
+                  }
                 }
               } catch (apiError) {
-                console.warn(`API call failed for product ${item.id}:`, apiError);
+                console.warn(`Sheet SKU lookup failed for product ${item.id}:`, apiError);
               }
               
-              // Priority 3: Try static products as fallback
+              // Priority 4: Try static products as final fallback
               if (!productSku) {
                 const staticProduct = products.find(p => p.id === item.id);
                 if (staticProduct?.sku) {

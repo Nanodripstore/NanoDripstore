@@ -126,6 +126,7 @@ class LiveSheetSyncService {
   private sheets: any;
   private spreadsheetId: string;
   private cachedSheetName: string | null = null;
+  private cache: Map<string, any> = new Map();
 
   constructor() {
     this.spreadsheetId = process.env.LIVE_SHEET_ID || '';
@@ -210,6 +211,13 @@ class LiveSheetSyncService {
       if (!rows || rows.length === 0) {
         console.log('No data found in sheet');
         return { success: true, message: 'No data to sync', stats: { processed: 0, created: 0, updated: 0, errors: 0 } };
+      }
+
+      // Cache the raw sheet data for SKU lookups
+      const cacheKey = `sheet_data_${this.spreadsheetId}`;
+      if (this.cache) {
+        this.cache.set(cacheKey, rows);
+        console.log(`💾 Cached ${rows.length} raw sheet rows for future SKU lookups`);
       }
 
       const stats = {
@@ -715,6 +723,263 @@ class LiveSheetSyncService {
       throw error;
     }
   }
+
+  // Get specific variant SKU from sheet based on product ID, color, and size
+  async getVariantSkuFromSheet(productId: number, color: string, size: string): Promise<string | null> {
+    try {
+      console.log(`🔍 Step-by-step filtering: Product ${productId} → Color "${color}" → Size "${size}"`);
+      
+      // Use the working getProductsFromSheet method (same as cart updates)
+      return await this.getSkuFromWorkingMethod(productId, color, size);
+    } catch (error) {
+      console.error('💥 Error in step-by-step SKU lookup:', error);
+      return null;
+    }
+  }
+
+  private async getSkuFromWorkingMethod(productId: number, color: string, size: string): Promise<string | null> {
+    try {
+      console.log(`📊 Looking for size-specific SKU in raw sheet data...`);
+      
+      // Use cached sheet data if available, otherwise fetch fresh data
+      const cacheKey = `sheet_data_${this.spreadsheetId}`;
+      let allSheetRows: any[] = [];
+      
+      if (this.cache && this.cache.has(cacheKey)) {
+        allSheetRows = this.cache.get(cacheKey);
+        console.log(`📋 Using cached sheet data (${allSheetRows.length} rows)`);
+      } else {
+        console.log(`🔄 No cache found, fetching fresh sheet data...`);
+        
+        // Determine sheet name if not cached
+        if (!this.cachedSheetName) {
+          const spreadsheetInfo = await this.sheets.spreadsheets.get({
+            spreadsheetId: this.spreadsheetId,
+          });
+          
+          const firstSheet = spreadsheetInfo.data.sheets?.[0];
+          if (!firstSheet) {
+            throw new Error('No sheets found in the spreadsheet');
+          }
+          
+          this.cachedSheetName = firstSheet.properties?.title || 'Sheet1';
+        }
+        
+        // Get fresh data from sheet
+        const response = await this.sheets.spreadsheets.values.get({
+          spreadsheetId: this.spreadsheetId,
+          range: `${this.cachedSheetName}!A2:U1000`, // Use cached sheet name
+        });
+        
+        allSheetRows = response.data.values || [];
+        
+        // Cache the data
+        if (this.cache) {
+          this.cache.set(cacheKey, allSheetRows);
+          console.log(`💾 Cached ${allSheetRows.length} sheet rows for future lookups`);
+        }
+      }
+      
+      if (allSheetRows.length === 0) {
+        console.log(`❌ No sheet data available`);
+        return null;
+      }
+      
+      console.log(`🔍 Step-by-step filtering: Product ${productId} → Color "${color}" → Size "${size}"`);
+      
+      // Step 1: Parse rows and find matching product
+      const productRows = [];
+      for (let i = 0; i < allSheetRows.length; i++) {
+        const row = allSheetRows[i];
+        const parsedRow = this.parseSheetRow(row);
+        
+        if (parsedRow && parsedRow.product_id === productId) {
+          productRows.push(parsedRow);
+        }
+      }
+      
+      if (productRows.length === 0) {
+        console.log(`❌ Step 1 - Product ${productId}: Not found in sheet`);
+        return null;
+      }
+      
+      console.log(`🎯 Step 1 - Product ${productId}: Found ${productRows.length} rows`);
+      
+      // Step 2: Filter by color (case-insensitive)
+      const colorRows = productRows.filter(row => 
+        row.color_name.toLowerCase() === color.toLowerCase()
+      );
+      
+      if (colorRows.length === 0) {
+        const availableColors = [...new Set(productRows.map(row => row.color_name))];
+        console.log(`❌ Step 2 - Color "${color}": Not found. Available colors: ${availableColors.map(c => `"${c}"`).join(', ')}`);
+        return null;
+      }
+      
+      console.log(`🎨 Step 2 - Color "${color}": Found ${colorRows.length} rows`);
+      
+      // Step 3: Filter by size (case-insensitive)
+      const sizeRows = colorRows.filter(row => 
+        row.size.toLowerCase() === size.toLowerCase()
+      );
+      
+      if (sizeRows.length === 0) {
+        const availableSizes = [...new Set(colorRows.map(row => row.size))];
+        console.log(`❌ Step 3 - Size "${size}": Not found. Available sizes: ${availableSizes.map(s => `"${s}"`).join(', ')}`);
+        return null;
+      }
+      
+      console.log(`📏 Step 3 - Size "${size}": Found ${sizeRows.length} matching rows`);
+      
+      // Get the first matching row's SKU
+      const matchingRow = sizeRows[0];
+      const sku = matchingRow.variant_sku;
+      
+      if (!sku) {
+        console.log(`❌ Step 4 - SKU: Empty SKU in matching row`);
+        return null;
+      }
+      
+      console.log(`✅ Found size-specific SKU: "${sku}" for Product ${productId}, Color "${color}", Size "${size}"`);
+      
+      return sku;
+      
+    } catch (error) {
+      console.error('💥 Error in size-specific SKU lookup:', error);
+      return null;
+    }
+  }
+
+  // Legacy method - keeping for reference but unused (commented out for now)
+  /*
+  private async legacySkuLookup(productId: number, color: string, size: string) {
+      // Use the cached sheet data if available, this way we avoid the API range issue
+      const cacheKey = `sheet_data_${this.spreadsheetId}`;
+      let allSheetRows: any[] = [];
+      
+      // Try to use existing cache first
+      if (this.cache && this.cache.has(cacheKey)) {
+        const cachedData = this.cache.get(cacheKey);
+        if (cachedData) {
+          allSheetRows = cachedData;
+          console.log(`📋 Using cached sheet data (${allSheetRows.length} rows)`);
+        }
+      }
+      
+      // If no cache, get fresh data by triggering sync (which caches the data)
+      if (allSheetRows.length === 0) {
+        console.log(`� No cache found, triggering sync to get fresh data...`);
+        await this.syncFromSheet();
+        
+        // Try cache again after sync
+        if (this.cache && this.cache.has(cacheKey)) {
+          const cachedData = this.cache.get(cacheKey);
+          if (cachedData) {
+            allSheetRows = cachedData;
+            console.log(`📋 Got fresh data from sync (${allSheetRows.length} rows)`);
+          }
+        }
+      }
+      
+      if (allSheetRows.length === 0) {
+        console.log(`❌ No sheet data available`);
+        return null;
+      }
+      
+      // Step 1: Filter by product_id
+      const productRows = allSheetRows.filter(row => {
+        try {
+          const sheetRow = this.parseSheetRow(row);
+          return sheetRow && sheetRow.is_active && sheetRow.product_id === productId;
+        } catch {
+          return false;
+        }
+      });
+      
+      console.log(`🎯 Step 1 - Product ${productId}: Found ${productRows.length} rows`);
+      
+      if (productRows.length === 0) {
+        console.log(`❌ No rows found for Product ${productId}`);
+        return null;
+      }
+      
+      // Step 2: Filter by color
+      const colorRows = productRows.filter(row => {
+        try {
+          const sheetRow = this.parseSheetRow(row);
+          return sheetRow && sheetRow.color_name.toLowerCase() === color.toLowerCase();
+        } catch {
+          return false;
+        }
+      });
+      
+      console.log(`🎨 Step 2 - Color "${color}": Found ${colorRows.length} rows`);
+      
+      if (colorRows.length === 0) {
+        // Show available colors for this product
+        const availableColors = [...new Set(productRows.map(row => {
+          try {
+            const sheetRow = this.parseSheetRow(row);
+            return sheetRow?.color_name;
+          } catch {
+            return null;
+          }
+        }).filter(Boolean))];
+        
+        console.log(`❌ No rows found for Color "${color}". Available colors: ${availableColors.map(c => `"${c}"`).join(', ')}`);
+        return null;
+      }
+      
+      // Step 3: Filter by size
+      const sizeRows = colorRows.filter(row => {
+        try {
+          const sheetRow = this.parseSheetRow(row);
+          return sheetRow && sheetRow.size.toLowerCase() === size.toLowerCase();
+        } catch {
+          return false;
+        }
+      });
+      
+      console.log(`📏 Step 3 - Size "${size}": Found ${sizeRows.length} rows`);
+      
+      if (sizeRows.length === 0) {
+        // Show available sizes for this product + color
+        const availableSizes = [...new Set(colorRows.map(row => {
+          try {
+            const sheetRow = this.parseSheetRow(row);
+            return sheetRow?.size;
+          } catch {
+            return null;
+          }
+        }).filter(Boolean))];
+        
+        console.log(`❌ No rows found for Size "${size}". Available sizes for ${color}: ${availableSizes.map(s => `"${s}"`).join(', ')}`);
+        return null;
+      }
+      
+      // Step 4: Get the SKU from the matching row
+      const matchingRow = sizeRows[0]; // Take first match
+      const sheetRow = this.parseSheetRow(matchingRow);
+      
+      if (sheetRow && sheetRow.variant_sku) {
+        console.log(`✅ Found exact match: SKU "${sheetRow.variant_sku}" for Product ${productId}, Color "${color}", Size "${size}"`);
+        
+        if (sizeRows.length > 1) {
+          console.log(`⚠️ Multiple matches found (${sizeRows.length}), using first one`);
+        }
+        
+        return sheetRow.variant_sku;
+      }
+      
+      console.log(`❌ Matching row found but no valid SKU`);
+      return null;
+
+    } catch (error) {
+      console.error('💥 Error in step-by-step SKU lookup:', error);
+      return null;
+    }
+  }
+  */
 
   // Optimized method to group rows by product ID
   private groupRowsByProductOptimized(rows: SheetRow[]): { [key: number]: SheetRow[] } {

@@ -107,9 +107,51 @@ export default function ShopProducts({ initialCategory }: { initialCategory?: st
     return [];
   }, [data?.products]);
 
+  // Initialize default colors for each product
+  useEffect(() => {
+    if (data?.products && data.products.length > 0) {
+      const newSelectedColors: { [productId: number]: any } = {};
+      
+      data.products.forEach((product: any) => {
+        // Always initialize default color for products we haven't seen before
+        const productAlreadyHasColor = Object.prototype.hasOwnProperty.call(selectedColors, product.id);
+        
+        if (!productAlreadyHasColor) {
+          // Use variants if available, otherwise fall back to old color system
+          if (product.variants && product.variants.length > 0) {
+            // Set first variant as default
+            const firstVariant = product.variants[0];
+            newSelectedColors[product.id] = {
+              name: firstVariant.colorName,
+              value: firstVariant.colorValue,
+              variant: firstVariant
+            };
+          } else {
+            // Fallback to old color system
+            const colors = typeof product.colors === 'string' 
+              ? JSON.parse(product.colors || '[]') 
+              : product.colors || [];
+            
+            if (colors.length > 0) {
+              newSelectedColors[product.id] = colors[0];
+            }
+          }
+        }
+      });
+      
+      // Update colors if we have new ones to set
+      if (Object.keys(newSelectedColors).length > 0) {
+        setSelectedColors(prev => ({
+          ...prev,
+          ...newSelectedColors
+        }));
+      }
+    }
+  }, [data?.products]); // Remove selectedColors from dependency to avoid circular dependency
+
   // Force recompilation with a comment change - updated
 
-  const handleAddToCart = (product: any, selectedVariant?: any) => {
+  const handleAddToCart = async (product: any, selectedVariant?: any) => {
     if (!session?.user) {
       toast.error('Please sign in to add items to cart', {
         description: 'You need to be logged in to use the shopping cart',
@@ -197,14 +239,71 @@ export default function ShopProducts({ initialCategory }: { initialCategory?: st
     // Use selected size or fallback to default
     const finalSize = selectedSize || product.sizes?.[0] || 'M';
     
+    // First try to get the exact SKU from Google Sheets
+    let finalPrice = product.price;
+    let variantSku = product.sku;
+    
+    try {
+      console.log(`🔍 Fetching exact SKU from sheet for Product ${product.id}, Color: ${colorName}, Size: ${finalSize}`);
+      
+      const skuResponse = await fetch(`/api/products/variant-sku?productId=${product.id}&color=${encodeURIComponent(colorName)}&size=${encodeURIComponent(finalSize)}`);
+      
+      if (skuResponse.ok) {
+        const skuData = await skuResponse.json();
+        variantSku = skuData.sku;
+        console.log(`✅ Got exact SKU from sheet: ${variantSku}`);
+      } else {
+        console.warn('Sheet SKU lookup failed, using variant matching');
+        
+        // Find the exact variant that matches both color and size
+        if (product.variants && product.variants.length > 0) {
+          // Look for exact match (color + size)
+          const exactVariant = product.variants.find((variant: any) => 
+            variant.colorName === colorName && variant.size === finalSize
+          );
+          
+          if (exactVariant) {
+            finalPrice = exactVariant.price || product.price;
+            variantSku = exactVariant.sku;
+            console.log(`Found exact variant for ${product.name} (${colorName} ${finalSize}): ${variantSku}`);
+          } else {
+            // Fallback to color-only match
+            const colorVariant = product.variants.find((variant: any) => 
+              variant.colorName === colorName
+            );
+            if (colorVariant) {
+              finalPrice = colorVariant.price || product.price;
+              variantSku = colorVariant.sku;
+              console.log(`Using color variant for ${product.name} (${colorName}): ${variantSku}`);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Error fetching SKU from sheet:', error);
+      
+      // Fallback to variant matching
+      if (product.variants && product.variants.length > 0) {
+        const exactVariant = product.variants.find((variant: any) => 
+          variant.colorName === colorName && variant.size === finalSize
+        );
+        
+        if (exactVariant) {
+          finalPrice = exactVariant.price || product.price;
+          variantSku = exactVariant.sku;
+        }
+      }
+    }
+    
     const cartItem = {
       id: product.id,
       name: product.name,
-      price: product.price,
+      price: finalPrice,
       color: colorName,
       size: finalSize,
       image: productImage,
-      type: product.type
+      type: product.type,
+      sku: variantSku
     };
     
     

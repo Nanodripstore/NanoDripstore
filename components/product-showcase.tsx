@@ -226,7 +226,7 @@ export default function ProductShowcase() {
     return '';
   };
 
-  const handleAddToCart = (product: any, selectedVariant?: any) => {
+  const handleAddToCart = async (product: any, selectedVariant?: any) => {
     if (!session?.user) {
       toast.error('Please sign in to add items to cart', {
         description: 'You need to be logged in to use the shopping cart',
@@ -279,6 +279,48 @@ export default function ProductShowcase() {
     // Use selected size or fallback to default
     const finalSize = selectedSize || product.sizes?.[0] || 'M';
     
+    // First try to get the exact SKU from Google Sheets
+    try {
+      console.log(`🔍 Fetching exact SKU from sheet for Product ${product.id}, Color: ${colorName}, Size: ${finalSize}`);
+      
+      const skuResponse = await fetch(`/api/products/variant-sku?productId=${product.id}&color=${encodeURIComponent(colorName)}&size=${encodeURIComponent(finalSize)}`);
+      
+      if (skuResponse.ok) {
+        const skuData = await skuResponse.json();
+        variantSku = skuData.sku;
+        console.log(`✅ Got exact SKU from sheet: ${variantSku}`);
+      } else {
+        console.warn('Sheet SKU lookup failed, using variant matching');
+        
+        // Find the exact variant that matches both color and size for more accurate SKU
+        if (product.variants && product.variants.length > 0) {
+          const exactVariant = product.variants.find((variant: any) => 
+            variant.colorName === colorName && variant.size === finalSize
+          );
+          
+          if (exactVariant) {
+            variantSku = exactVariant.sku;
+            variantPrice = exactVariant.price || product.price;
+            console.log(`Found exact variant for ${product.name} (${colorName} ${finalSize}): ${variantSku}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Error fetching SKU from sheet:', error);
+      
+      // Fallback to variant matching
+      if (product.variants && product.variants.length > 0) {
+        const exactVariant = product.variants.find((variant: any) => 
+          variant.colorName === colorName && variant.size === finalSize
+        );
+        
+        if (exactVariant) {
+          variantSku = exactVariant.sku;
+          variantPrice = exactVariant.price || product.price;
+        }
+      }
+    }
+    
     const cartItem = {
       id: product.id,
       name: product.name,
@@ -288,7 +330,8 @@ export default function ProductShowcase() {
       image: Array.isArray(product.images) && product.images.length > 0 
         ? product.images[0] 
         : '/placeholder-image.jpg',
-      type: product.type as 'tshirt' | 'hoodie'
+      type: product.type as 'tshirt' | 'hoodie',
+      sku: variantSku
     };
     
     addItem(cartItem);

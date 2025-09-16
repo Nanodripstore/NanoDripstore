@@ -374,6 +374,39 @@ export default function ProductShowcase() {
     router.push(`/shop/${slug}`);
   };
 
+  // Helper function to get current price based on selected variant and size
+  const getCurrentPrice = (product: any, productId: number) => {
+    const selectedColor = selectedColors[productId];
+    const selectedSize = selectedSizes[productId];
+    
+    // If product has variants and a color is selected
+    if (product.variants && product.variants.length > 0 && selectedColor?.variant) {
+      // Try to find exact variant matching both color and size
+      const exactVariant = product.variants.find((variant: any) => 
+        variant.colorName === selectedColor.variant.colorName && 
+        variant.size === selectedSize
+      );
+      
+      if (exactVariant && exactVariant.price) {
+        return exactVariant.price;
+      }
+      
+      // Fallback to selected color variant price
+      if (selectedColor.variant.price) {
+        return selectedColor.variant.price;
+      }
+    }
+    
+    // Fallback to base product price
+    return product.price;
+  };
+
+  // Helper function to check if variant has different price than base product
+  const hasVariantPricing = (product: any, productId: number) => {
+    const currentPrice = getCurrentPrice(product, productId);
+    return currentPrice !== product.price;
+  };
+
   return (
     <section className="py-20 px-4">
       <div className="container mx-auto">
@@ -686,8 +719,13 @@ export default function ProductShowcase() {
                       {/* Price */}
                       <div className="flex items-center gap-2 mb-3 sm:mb-4">
                         <span className="text-lg sm:text-xl font-bold text-primary">
-                          ₹{product.price}
+                          ₹{getCurrentPrice(product, product.id)?.toFixed(2)}
                         </span>
+                        {hasVariantPricing(product, product.id) && (
+                          <span className="text-sm text-muted-foreground line-through">
+                            ₹{product.price?.toFixed(2)}
+                          </span>
+                        )}
                       </div>
 
                       {/* Action Buttons */}
@@ -761,7 +799,8 @@ export default function ProductShowcase() {
                             }
                             
                             // Navigate to checkout with product/variant details including color and size
-                            const checkoutUrl = `/checkout?product=${product.id}&name=${encodeURIComponent(orderName)}&price=${product.price}&sku=${orderSku}&image=${encodeURIComponent(orderImage)}&color=${colorParam}&size=${encodeURIComponent(sizeParam)}${variantInfo}`;
+                            const currentPrice = getCurrentPrice(product, product.id);
+                            const checkoutUrl = `/checkout?product=${product.id}&name=${encodeURIComponent(orderName)}&price=${currentPrice}&sku=${orderSku}&image=${encodeURIComponent(orderImage)}&color=${colorParam}&size=${encodeURIComponent(sizeParam)}${variantInfo}`;
                             router.push(checkoutUrl);
                           }}
                           className="flex-1 text-xs sm:text-sm py-2 sm:py-3 hover:scale-105 transition-all duration-200"

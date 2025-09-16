@@ -1,4 +1,3 @@
-import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
@@ -37,7 +36,7 @@ export function getClientIP(request: Request): string {
 
 // Main rate limiting function with user-based + IP-based hybrid approach
 export async function rateLimit(
-  request: NextRequest,
+  request: Request,
   options: RateLimitOptions
 ): Promise<RateLimitResult> {
   // Get user identifier (prefer user ID, fallback to IP)
@@ -121,28 +120,28 @@ function cleanupExpiredEntries() {
 setInterval(cleanupExpiredEntries, 60000); // Run every minute
 
 // Helper functions for different endpoint types
-export const paymentRateLimit = (request: NextRequest) => 
+export const paymentRateLimit = (request: Request) => 
   rateLimit(request, { 
     interval: 60 * 1000, // 1 minute
     uniqueTokenPerInterval: 15, // Increased for legitimate users
     type: 'payment' 
   });
 
-export const authRateLimit = (request: NextRequest) => 
+export const authRateLimit = (request: Request) => 
   rateLimit(request, { 
     interval: 60 * 1000, // 1 minute  
     uniqueTokenPerInterval: 8, // Slightly increased
     type: 'auth'
   });
 
-export const webhookRateLimit = (request: NextRequest) => 
+export const webhookRateLimit = (request: Request) => 
   rateLimit(request, { 
     interval: 60 * 1000, // 1 minute
     uniqueTokenPerInterval: 100, // Keep high for webhooks
     type: 'webhook' 
   });
 
-export const generalRateLimit = (request: NextRequest) => 
+export const generalRateLimit = (request: Request) => 
   rateLimit(request, { 
     interval: 60 * 1000, // 1 minute
     uniqueTokenPerInterval: 30, // General API endpoints

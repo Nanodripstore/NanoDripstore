@@ -74,9 +74,44 @@ export async function GET() {
       // Parse the Qikink data from notes field if it exists
       let qikinkData: any = {};
       try {
-        qikinkData = order.notes ? JSON.parse(order.notes) : {};
+        if (order.notes) {
+          // Handle corrupted JSON by extracting the JSON part before any appended text
+          let cleanNotes = order.notes;
+          
+          // If notes contain appended text (indicated by newlines after JSON), extract just the JSON part
+          if (cleanNotes.includes('\n\n')) {
+            const jsonEnd = cleanNotes.indexOf('\n\n');
+            cleanNotes = cleanNotes.substring(0, jsonEnd);
+          }
+          
+          qikinkData = JSON.parse(cleanNotes);
+        }
       } catch (error) {
-        console.error('Error parsing order notes:', error);
+        console.error('Error parsing order notes for order', order.orderNumber, ':', error);
+        console.log('Raw notes:', order.notes?.substring(0, 200) + '...');
+        
+        // Try to extract JSON from corrupted notes as fallback
+        try {
+          if (order.notes) {
+            // Find the first { and try to extract valid JSON up to the first \n\n
+            const firstBrace = order.notes.indexOf('{');
+            if (firstBrace !== -1) {
+              let jsonCandidate = order.notes.substring(firstBrace);
+              
+              // If there's a double newline, cut at that point
+              const doubleNewline = jsonCandidate.indexOf('\n\n');
+              if (doubleNewline !== -1) {
+                jsonCandidate = jsonCandidate.substring(0, doubleNewline);
+              }
+              
+              qikinkData = JSON.parse(jsonCandidate);
+              console.log('✅ Recovered JSON from corrupted notes');
+            }
+          }
+        } catch (recoveryError) {
+          console.error('❌ Could not recover JSON from corrupted notes');
+          qikinkData = {}; // Use empty object as fallback
+        }
       }
 
       return {

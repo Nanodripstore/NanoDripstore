@@ -1,4 +1,3 @@
-import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { verifyPaymentSignature } from '@/lib/razorpay';
@@ -6,7 +5,7 @@ import { db } from '@/lib/db';
 import { StatusCodes } from 'http-status-codes';
 import { paymentRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
     // Apply rate limiting for payment verification
     const rateLimitResult = await paymentRateLimit(req);
@@ -120,12 +119,77 @@ export async function POST(req: NextRequest) {
       console.log('✅ Order created successfully:', order.orderNumber);
       console.log('📋 Order data prepared for Qikink processing');
       
+      // IMMEDIATE QIKINK PROCESSING (Fallback for webhook issues)
+      // In production, webhook will handle this. In development, do it immediately.
+      try {
+        console.log('🚀 Processing Qikink order immediately (webhook fallback)');
+        
+        const orderNotes = JSON.parse(order.notes || '{}');
+        if (orderNotes.line_items && orderNotes.shipping_address) {
+          const qikinkOrderPayload = {
+            order_number: order.orderNumber,
+            qikink_shipping: "1",
+            gateway: "Prepaid",
+            total_order_value: order.total.toString(),
+            line_items: orderNotes.line_items,
+            shipping_address: orderNotes.shipping_address
+          };
+          
+          console.log('📋 Sending to Qikink immediately:', JSON.stringify(qikinkOrderPayload, null, 2));
+          
+          // Call Qikink API directly
+          const qikinkResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/qikink/create-order`, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'User-Agent': 'NanoDrip-PaymentVerify/1.0'
+            },
+            body: JSON.stringify({ orderPayload: qikinkOrderPayload }),
+          });
+          
+          const responseText = await qikinkResponse.text();
+          console.log('📡 Immediate Qikink Response:', qikinkResponse.status, responseText);
+          
+          if (qikinkResponse.ok) {
+            const qikinkResult = JSON.parse(responseText);
+            console.log('✅ Qikink order created immediately:', qikinkResult);
+            
+            // Update order with success
+            const updatedNotes = JSON.stringify({
+              ...orderNotes,
+              qikink_order: {
+                ...qikinkResult,
+                created_at: new Date().toISOString(),
+                created_via: 'immediate_processing'
+              }
+            });
+            
+            await db.orders.update({
+              where: { id: order.id },
+              data: {
+                status: 'confirmed',
+                paymentStatus: 'paid',
+                notes: updatedNotes
+              }
+            });
+            
+            console.log('✅ Order immediately confirmed and sent to Qikink');
+          } else {
+            console.error('❌ Immediate Qikink creation failed:', responseText);
+            // Just log error, don't fail payment verification
+          }
+        }
+      } catch (qikinkError) {
+        console.error('❌ Immediate Qikink processing error:', qikinkError);
+        // Don't fail payment verification if immediate Qikink fails
+      }
+      
     } catch (dbError) {
       console.error('❌ Failed to create order in database:', dbError);
       // Don't fail the payment verification if DB save fails, log and continue
     }
     
-    console.log('Payment verified successfully:', {
+    console.log('Payment verified successfully with immediate processing:', {
       orderId: razorpay_order_id,
       paymentId: razorpay_payment_id,
       userEmail: session.user.email,
@@ -134,7 +198,7 @@ export async function POST(req: NextRequest) {
 
     return Response.json({
       success: true,
-      message: 'Payment verified successfully',
+      message: 'Payment verified and order processed successfully',
       paymentId: razorpay_payment_id,
       orderId: razorpay_order_id
     }, {

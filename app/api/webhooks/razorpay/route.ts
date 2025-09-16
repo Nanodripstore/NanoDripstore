@@ -1,9 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
-import crypto from 'crypto'
+import * as crypto from 'crypto'
 import { db } from '@/lib/db'
 import { webhookRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   console.log('🚀 WEBHOOK STARTED - Razorpay webhook received at:', new Date().toISOString())
   
   try {
@@ -20,7 +19,7 @@ export async function POST(req: NextRequest) {
     
     if (!signature) {
       console.log('❌ No signature found in webhook')
-      return NextResponse.json({ error: 'No signature found' }, { status: 400 })
+      return Response.json({ error: 'No signature found' }, { status: 400 })
     }
 
     // Verify webhook signature
@@ -37,7 +36,7 @@ export async function POST(req: NextRequest) {
 
     if (signature !== expectedSignature) {
       console.log('❌ Invalid signature - webhook rejected')
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+      return Response.json({ error: 'Invalid signature' }, { status: 400 })
     }
 
     console.log('✅ Webhook signature verified successfully')
@@ -95,15 +94,29 @@ export async function POST(req: NextRequest) {
 
           if (order) {
             // Update order status to paid/confirmed
+            // Update order with proper JSON structure
+            let updatedNotes = order.notes;
+            try {
+              const existingData = JSON.parse(order.notes || '{}');
+              existingData.payment_captured = {
+                payment_id: paymentId,
+                captured_at: new Date().toISOString(),
+                webhook_processed: true
+              };
+              updatedNotes = JSON.stringify(existingData);
+            } catch (e) {
+              console.warn('⚠️ Could not parse existing notes as JSON for payment capture update');
+              // Keep original notes if JSON parsing fails
+              updatedNotes = order.notes;
+            }
+            
             await db.orders.update({
               where: { id: order.id },
               data: {
                 status: 'paid',
                 paymentStatus: 'paid',
                 paymentMethod: 'razorpay',
-                notes: order.notes ? 
-                  `${order.notes}\n\nPayment captured: ${paymentId} at ${new Date().toISOString()}` :
-                  `Payment captured: ${paymentId} at ${new Date().toISOString()}`,
+                notes: updatedNotes,
                 updatedAt: new Date()
               }
             })
@@ -145,19 +158,37 @@ export async function POST(req: NextRequest) {
                   const qikinkResult = JSON.parse(responseText)
                   console.log('✅ Qikink order created successfully:', qikinkResult)
                   
-                  // Update order with Qikink order details
+                  // Update order with Qikink order details - ALWAYS maintain JSON structure
                   let updatedNotes = order.notes
                   try {
-                    const existingData = JSON.parse(order.notes || '{}')
+                    // Try to parse existing JSON first
+                    let existingData: any = {};
+                    if (order.notes) {
+                      // Handle potentially corrupted JSON by extracting clean JSON part
+                      let cleanNotes = order.notes;
+                      if (cleanNotes.includes('\n\n')) {
+                        cleanNotes = cleanNotes.substring(0, cleanNotes.indexOf('\n\n'));
+                      }
+                      existingData = JSON.parse(cleanNotes);
+                    }
+                    
                     existingData.qikink_order = {
                       ...qikinkResult,
-                      created_at: new Date().toISOString()
-                    }
-                    updatedNotes = JSON.stringify(existingData)
+                      created_at: new Date().toISOString(),
+                      created_via: 'webhook'
+                    };
+                    updatedNotes = JSON.stringify(existingData, null, 2);
                   } catch (e) {
-                    // Fallback if JSON parsing fails
-                    console.warn('⚠️ Could not parse existing notes as JSON, appending as text')
-                    updatedNotes = `${order.notes}\n\nQikink order created: ${JSON.stringify(qikinkResult)} at ${new Date().toISOString()}`
+                    console.warn('⚠️ Could not parse existing notes as JSON, creating new JSON structure');
+                    // Create fresh JSON structure if parsing fails completely
+                    updatedNotes = JSON.stringify({
+                      qikink_order: {
+                        ...qikinkResult,
+                        created_at: new Date().toISOString(),
+                        created_via: 'webhook_fallback'
+                      },
+                      webhook_note: 'Original notes could not be parsed as JSON'
+                    }, null, 2);
                   }
                   
                   await db.orders.update({
@@ -173,12 +204,40 @@ export async function POST(req: NextRequest) {
                   console.error('❌ Failed to create Qikink order. Status:', qikinkResponse.status)
                   console.error('❌ Response:', responseText)
                   
-                  // Still mark as paid but note the Qikink failure
+                  // Still mark as paid but note the Qikink failure - maintain JSON structure
+                  let failureNotes = order.notes;
+                  try {
+                    let existingData: any = {};
+                    if (order.notes) {
+                      let cleanNotes = order.notes;
+                      if (cleanNotes.includes('\n\n')) {
+                        cleanNotes = cleanNotes.substring(0, cleanNotes.indexOf('\n\n'));
+                      }
+                      existingData = JSON.parse(cleanNotes);
+                    }
+                    
+                    existingData.qikink_error = {
+                      error: responseText,
+                      failed_at: new Date().toISOString(),
+                      status: qikinkResponse.status
+                    };
+                    failureNotes = JSON.stringify(existingData, null, 2);
+                  } catch (e) {
+                    console.warn('⚠️ Could not parse notes for failure update, creating new structure');
+                    failureNotes = JSON.stringify({
+                      qikink_error: {
+                        error: responseText,
+                        failed_at: new Date().toISOString(),
+                        status: qikinkResponse.status
+                      }
+                    }, null, 2);
+                  }
+                  
                   await db.orders.update({
                     where: { id: order.id },
                     data: {
                       status: 'paid_qikink_failed',
-                      notes: `${order.notes}\n\nQikink order creation failed: ${responseText} at ${new Date().toISOString()}`
+                      notes: failureNotes
                     }
                   })
                 }
@@ -190,11 +249,37 @@ export async function POST(req: NextRequest) {
               console.error('❌ Error creating Qikink order:', qikinkError)
               // Don't fail the webhook if Qikink order creation fails
               try {
+                // Maintain JSON structure for error updates too
+                let errorNotes = order.notes;
+                try {
+                  let existingData: any = {};
+                  if (order.notes) {
+                    let cleanNotes = order.notes;
+                    if (cleanNotes.includes('\n\n')) {
+                      cleanNotes = cleanNotes.substring(0, cleanNotes.indexOf('\n\n'));
+                    }
+                    existingData = JSON.parse(cleanNotes);
+                  }
+                  
+                  existingData.qikink_processing_error = {
+                    error: qikinkError instanceof Error ? qikinkError.message : 'Unknown error',
+                    error_at: new Date().toISOString()
+                  };
+                  errorNotes = JSON.stringify(existingData, null, 2);
+                } catch (e) {
+                  errorNotes = JSON.stringify({
+                    qikink_processing_error: {
+                      error: qikinkError instanceof Error ? qikinkError.message : 'Unknown error',
+                      error_at: new Date().toISOString()
+                    }
+                  }, null, 2);
+                }
+                
                 await db.orders.update({
                   where: { id: order.id },
                   data: {
                     status: 'paid_qikink_error',
-                    notes: `${order.notes}\n\nQikink error: ${qikinkError instanceof Error ? qikinkError.message : 'Unknown error'} at ${new Date().toISOString()}`
+                    notes: errorNotes
                   }
                 })
               } catch (dbUpdateError) {
@@ -226,14 +311,38 @@ export async function POST(req: NextRequest) {
           })
 
           if (failedOrder) {
+            // Update failed order with proper JSON structure
+            let failedNotes = failedOrder.notes;
+            try {
+              let existingData: any = {};
+              if (failedOrder.notes) {
+                let cleanNotes = failedOrder.notes;
+                if (cleanNotes.includes('\n\n')) {
+                  cleanNotes = cleanNotes.substring(0, cleanNotes.indexOf('\n\n'));
+                }
+                existingData = JSON.parse(cleanNotes);
+              }
+              
+              existingData.payment_failed = {
+                payment_id: failedPaymentId,
+                failed_at: new Date().toISOString()
+              };
+              failedNotes = JSON.stringify(existingData, null, 2);
+            } catch (e) {
+              failedNotes = JSON.stringify({
+                payment_failed: {
+                  payment_id: failedPaymentId,
+                  failed_at: new Date().toISOString()
+                }
+              }, null, 2);
+            }
+            
             await db.orders.update({
               where: { id: failedOrder.id },
               data: {
                 status: 'failed',
                 paymentStatus: 'failed',
-                notes: failedOrder.notes ? 
-                  `${failedOrder.notes}\n\nPayment failed: ${failedPaymentId} at ${new Date().toISOString()}` :
-                  `Payment failed: ${failedPaymentId} at ${new Date().toISOString()}`,
+                notes: failedNotes,
                 updatedAt: new Date()
               }
             })
@@ -250,10 +359,10 @@ export async function POST(req: NextRequest) {
     }
 
     console.log('✅ WEBHOOK COMPLETED SUCCESSFULLY at:', new Date().toISOString())
-    return NextResponse.json({ success: true })
+    return Response.json({ success: true })
   } catch (error) {
     console.error('🚨 WEBHOOK ERROR:', error)
     console.error('🚨 Error stack:', error instanceof Error ? error.stack : 'No stack trace')
-    return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 })
+    return Response.json({ error: 'Webhook processing failed' }, { status: 500 })
   }
 }
